@@ -1,0 +1,1573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jenkins CLI - Terminal Control for Jenkins</title>
+    <meta name="description" content="Control Jenkins from the command line. Manage jobs, builds, pipelines, nodes, credentials, views, plugins, and more.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        /* ============================================
+           1. DESIGN TOKENS
+           ============================================ */
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #111118;
+            --bg-tertiary: #16161f;
+            --bg-glass: rgba(255, 255, 255, 0.03);
+            --bg-glass-hover: rgba(255, 255, 255, 0.06);
+            --bg-glass-strong: rgba(255, 255, 255, 0.08);
+            --border: rgba(255, 255, 255, 0.06);
+            --border-hover: rgba(255, 255, 255, 0.12);
+            --border-strong: rgba(255, 255, 255, 0.15);
+            --text-primary: #e4e4e7;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --accent: #58a6ff;
+            --accent-dim: rgba(88, 166, 255, 0.12);
+            --accent-glow: rgba(88, 166, 255, 0.25);
+            --green: #34d399;
+            --green-dim: rgba(52, 211, 153, 0.12);
+            --cyan: #22d3ee;
+            --cyan-dim: rgba(34, 211, 238, 0.12);
+            --orange: #fb923c;
+            --orange-dim: rgba(251, 146, 60, 0.12);
+            --pink: #f472b6;
+            --pink-dim: rgba(244, 114, 182, 0.12);
+            --purple: #818cf8;
+            --purple-dim: rgba(129, 140, 248, 0.12);
+
+            --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px;
+            --sp-5: 20px; --sp-6: 24px; --sp-8: 32px; --sp-10: 40px;
+            --sp-12: 48px; --sp-16: 64px; --sp-20: 80px; --sp-24: 96px;
+            --sp-30: 120px;
+
+            --text-xs: 12px; --text-sm: 13px; --text-base: 14px;
+            --text-md: 15px; --text-lg: 16px; --text-xl: 18px;
+            --text-2xl: 20px; --text-3xl: 24px;
+            --text-4xl: clamp(28px, 4vw, 40px);
+            --text-hero: clamp(40px, 6vw, 72px);
+
+            --radius-sm: 6px; --radius: 10px; --radius-md: 12px;
+            --radius-lg: 16px; --radius-xl: 20px; --radius-full: 9999px;
+
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+            --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+            --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.4);
+            --shadow-glow: 0 0 40px var(--accent-glow);
+
+            --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+            --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+            --duration-fast: 150ms;
+            --duration-base: 250ms;
+            --duration-slow: 400ms;
+        }
+
+        /* ============================================
+           2. RESET & BASE
+           ============================================ */
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        a { color: inherit; text-decoration: none; }
+        code { font-family: 'JetBrains Mono', monospace; }
+        button { font-family: inherit; }
+        img { display: block; max-width: 100%; }
+
+        /* ============================================
+           3. LAYOUT UTILITIES
+           ============================================ */
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 var(--sp-6); }
+
+        .glass-card {
+            background: var(--bg-glass);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            transition: background var(--duration-base) var(--ease-out),
+                        border-color var(--duration-base) var(--ease-out),
+                        transform var(--duration-base) var(--ease-out);
+        }
+        .glass-card:hover {
+            background: var(--bg-glass-hover);
+            border-color: var(--border-hover);
+        }
+
+        .gradient-border { position: relative; overflow: hidden; }
+        .gradient-border::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--accent), var(--cyan), transparent);
+            opacity: 0;
+            transition: opacity var(--duration-base) var(--ease-out);
+        }
+        .gradient-border:hover::before { opacity: 1; }
+
+        .bento-grid { display: grid; gap: var(--sp-4); }
+
+        /* ============================================
+           4. BACKGROUND
+           ============================================ */
+        .bg-dots {
+            position: fixed; inset: 0;
+            background-image: radial-gradient(circle, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+            background-size: 32px 32px;
+            pointer-events: none; z-index: 0;
+        }
+        .bg-blobs { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+        .bg-blob { position: absolute; border-radius: 50%; filter: blur(140px); }
+        .bg-blob-1 { width: 600px; height: 600px; background: var(--accent); top: -200px; right: -100px; opacity: 0.07; }
+        .bg-blob-2 { width: 500px; height: 500px; background: var(--cyan); bottom: -150px; left: -100px; opacity: 0.05; }
+        .bg-blob-3 { width: 400px; height: 400px; background: var(--green); top: 50%; left: 40%; opacity: 0.03; }
+
+        .content-wrapper { position: relative; z-index: 1; }
+
+        /* ============================================
+           5. NAVIGATION
+           ============================================ */
+        .nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            padding: 0 var(--sp-6);
+            transition: background var(--duration-base) var(--ease-out),
+                        border-color var(--duration-base) var(--ease-out);
+            border-bottom: 1px solid transparent;
+        }
+        .nav-scrolled {
+            background: rgba(10, 10, 15, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom-color: var(--border);
+        }
+        .nav-inner {
+            max-width: 1200px; margin: 0 auto;
+            display: flex; justify-content: space-between; align-items: center; height: 64px;
+        }
+        .nav-logo {
+            display: flex; align-items: center; gap: var(--sp-3);
+            font-weight: 700; font-size: var(--text-xl);
+        }
+        .nav-logo-icon {
+            width: 32px; height: 32px;
+            background: linear-gradient(135deg, var(--accent), var(--cyan));
+            border-radius: var(--radius-sm);
+            display: flex; align-items: center; justify-content: center;
+            font-size: var(--text-lg); font-weight: 800; color: var(--bg-primary);
+        }
+        .nav-links { display: flex; gap: var(--sp-8); list-style: none; }
+        .nav-link {
+            color: var(--text-secondary); font-size: var(--text-base); font-weight: 500;
+            transition: color var(--duration-fast); position: relative;
+        }
+        .nav-link::after {
+            content: ''; position: absolute; bottom: -4px; left: 0; right: 0;
+            height: 2px; background: var(--accent); border-radius: 1px;
+            transform: scaleX(0); transition: transform var(--duration-base) var(--ease-out);
+        }
+        .nav-link:hover, .nav-link-active { color: var(--text-primary); }
+        .nav-link-active::after { transform: scaleX(1); }
+        .nav-cta {
+            display: flex; align-items: center; gap: var(--sp-2);
+            padding: var(--sp-2) var(--sp-4);
+            background: var(--accent-dim);
+            border: 1px solid rgba(88, 166, 255, 0.2);
+            border-radius: var(--radius);
+            color: var(--accent); font-size: var(--text-base); font-weight: 500;
+            transition: all var(--duration-fast);
+        }
+        .nav-cta:hover { background: rgba(88, 166, 255, 0.2); border-color: rgba(88, 166, 255, 0.3); }
+        .nav-cta svg { width: 16px; height: 16px; }
+
+        /* Hamburger */
+        .nav-hamburger {
+            display: none; background: none; border: none; cursor: pointer;
+            padding: var(--sp-2); color: var(--text-primary); z-index: 110;
+        }
+        .hamburger-lines { display: flex; flex-direction: column; gap: 5px; width: 22px; }
+        .hamburger-line {
+            display: block; width: 100%; height: 2px; background: currentColor;
+            border-radius: 1px;
+            transition: transform var(--duration-base) var(--ease-out), opacity var(--duration-fast);
+            transform-origin: center;
+        }
+        .nav-hamburger-open .hamburger-line:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+        .nav-hamburger-open .hamburger-line:nth-child(2) { opacity: 0; }
+        .nav-hamburger-open .hamburger-line:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+        /* Mobile */
+        .nav-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0, 0, 0, 0.6); z-index: 99;
+            opacity: 0; transition: opacity var(--duration-base) var(--ease-out);
+        }
+        .nav-overlay-visible { opacity: 1; }
+        .nav-mobile {
+            position: fixed; top: 0; right: 0; bottom: 0; width: 280px;
+            background: var(--bg-secondary);
+            border-left: 1px solid var(--border); z-index: 105;
+            padding: var(--sp-20) var(--sp-6) var(--sp-6);
+            transform: translateX(100%);
+            transition: transform var(--duration-slow) var(--ease-out);
+            display: none; flex-direction: column; gap: var(--sp-2);
+        }
+        .nav-mobile-open { transform: translateX(0); }
+        .nav-mobile-link {
+            display: block; padding: var(--sp-3) var(--sp-4);
+            color: var(--text-secondary); font-size: var(--text-lg); font-weight: 500;
+            border-radius: var(--radius); transition: all var(--duration-fast);
+        }
+        .nav-mobile-link:hover { color: var(--text-primary); background: var(--bg-glass); }
+        .nav-mobile-cta {
+            display: flex; align-items: center; justify-content: center; gap: var(--sp-2);
+            margin-top: var(--sp-4); padding: var(--sp-3) var(--sp-4);
+            background: var(--accent-dim);
+            border: 1px solid rgba(88, 166, 255, 0.2);
+            border-radius: var(--radius);
+            color: var(--accent); font-size: var(--text-base); font-weight: 500;
+        }
+        .nav-mobile-cta svg { width: 16px; height: 16px; }
+
+        /* ============================================
+           6. HERO
+           ============================================ */
+        .hero {
+            min-height: 100vh;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            text-align: center;
+            padding: var(--sp-30) var(--sp-6) var(--sp-20);
+            max-width: 900px; margin: 0 auto; position: relative;
+        }
+        .hero-badge {
+            display: inline-flex; align-items: center; gap: var(--sp-2);
+            padding: var(--sp-2) var(--sp-4);
+            background: var(--bg-glass); border: 1px solid var(--border);
+            border-radius: var(--radius-full);
+            font-size: var(--text-sm); color: var(--text-secondary);
+            margin-bottom: var(--sp-8);
+            animation: hero-fade-in 0.8s var(--ease-out) both;
+            overflow: hidden; position: relative;
+        }
+        .hero-badge::after {
+            content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+            animation: shimmer 3s ease-in-out infinite;
+        }
+        @keyframes shimmer { 0% { left: -100%; } 100% { left: 100%; } }
+        .hero-badge-dot {
+            width: 6px; height: 6px; background: var(--green); border-radius: 50%;
+            animation: pulse-dot 2s ease-in-out infinite;
+        }
+        @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+        .hero-title {
+            font-size: var(--text-hero); font-weight: 800;
+            line-height: 1.05; letter-spacing: -0.03em;
+            margin-bottom: var(--sp-6);
+            animation: hero-fade-in 0.8s var(--ease-out) 0.1s both;
+        }
+        .gradient-text {
+            background: linear-gradient(135deg, var(--accent) 0%, var(--cyan) 50%, var(--green) 100%);
+            -webkit-background-clip: text; background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .hero-desc {
+            font-size: var(--text-xl); line-height: 1.7; color: var(--text-secondary);
+            max-width: 600px; margin-bottom: var(--sp-10);
+            animation: hero-fade-in 0.8s var(--ease-out) 0.2s both;
+        }
+        .hero-actions {
+            display: flex; gap: var(--sp-3); flex-wrap: wrap; justify-content: center;
+            animation: hero-fade-in 0.8s var(--ease-out) 0.3s both;
+        }
+        .btn-primary {
+            display: inline-flex; align-items: center; gap: var(--sp-2);
+            padding: var(--sp-3) var(--sp-6);
+            background: var(--accent); color: var(--bg-primary);
+            border: none; border-radius: var(--radius);
+            font-size: var(--text-md); font-weight: 600; cursor: pointer;
+            transition: all var(--duration-fast);
+        }
+        .btn-primary:hover { background: #79c0ff; transform: translateY(-1px); box-shadow: var(--shadow-glow); }
+        .btn-secondary {
+            display: inline-flex; align-items: center; gap: var(--sp-2);
+            padding: var(--sp-3) var(--sp-6);
+            background: var(--bg-glass); color: var(--text-primary);
+            border: 1px solid var(--border); border-radius: var(--radius);
+            font-size: var(--text-md); font-weight: 500; cursor: pointer;
+            transition: all var(--duration-fast);
+        }
+        .btn-secondary:hover { background: var(--bg-glass-hover); border-color: var(--border-hover); transform: translateY(-1px); }
+
+        .install-bar {
+            display: flex; align-items: center; gap: var(--sp-3);
+            margin-top: var(--sp-12); padding: var(--sp-4) var(--sp-5);
+            background: var(--bg-secondary); border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            animation: hero-fade-in 0.8s var(--ease-out) 0.4s both;
+            position: relative;
+        }
+        .install-bar code { font-size: var(--text-base); color: var(--text-secondary); }
+        .install-bar code .hl { color: var(--green); }
+
+        .copy-btn {
+            background: none; border: none; color: var(--text-muted); cursor: pointer;
+            padding: var(--sp-1); border-radius: var(--sp-1);
+            transition: color var(--duration-fast); display: flex; position: relative;
+        }
+        .copy-btn:hover { color: var(--text-primary); }
+        .copy-btn svg { width: 16px; height: 16px; }
+        .copy-btn .icon-check { display: none; color: var(--green); }
+        .copy-btn-copied .icon-clipboard { display: none; }
+        .copy-btn-copied .icon-check { display: block; }
+        .copy-tooltip {
+            position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+            padding: var(--sp-1) var(--sp-2);
+            background: var(--green); color: var(--bg-primary);
+            font-size: var(--text-xs); font-weight: 600;
+            border-radius: var(--sp-1); white-space: nowrap;
+            opacity: 0; pointer-events: none; transition: opacity var(--duration-fast);
+        }
+        .copy-btn-copied .copy-tooltip { opacity: 1; }
+        @keyframes hero-fade-in {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ============================================
+           7. STATS STRIP
+           ============================================ */
+        .stats-wrapper { margin-top: -40px; position: relative; z-index: 2; }
+        .stats-grid {
+            display: grid; grid-template-columns: repeat(4, 1fr);
+            gap: 1px; background: var(--border);
+            border-radius: var(--radius-xl); overflow: hidden;
+            box-shadow: var(--shadow-lg);
+        }
+        .stat-card {
+            background: var(--bg-secondary);
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            padding: var(--sp-8); text-align: center;
+        }
+        .stat-value {
+            font-size: 32px; font-weight: 700; letter-spacing: -0.02em;
+            margin-bottom: var(--sp-1);
+        }
+        .stat-value-accent { color: var(--accent); }
+        .stat-value-cyan { color: var(--cyan); }
+        .stat-value-green { color: var(--green); }
+        .stat-value-orange { color: var(--orange); }
+        .stat-label { font-size: var(--text-sm); color: var(--text-muted); font-weight: 500; }
+
+        /* ============================================
+           8. SECTION COMMON
+           ============================================ */
+        .section { padding: var(--sp-24) var(--sp-6); max-width: 1200px; margin: 0 auto; }
+        .section-label {
+            display: inline-flex; align-items: center; gap: var(--sp-2);
+            font-size: var(--text-sm); font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.08em; color: var(--accent); margin-bottom: var(--sp-4);
+        }
+        .section-title {
+            font-size: var(--text-4xl); font-weight: 700;
+            letter-spacing: -0.02em; margin-bottom: var(--sp-4);
+        }
+        .section-desc {
+            font-size: var(--text-lg); color: var(--text-secondary);
+            max-width: 560px; line-height: 1.7; margin-bottom: var(--sp-12);
+        }
+
+        /* ============================================
+           9. FEATURES BENTO
+           ============================================ */
+        .features-bento { grid-template-columns: repeat(3, 1fr); }
+        .feature-card { padding: var(--sp-8); }
+        .feature-card:hover { transform: translateY(-2px); }
+        .feature-icon {
+            width: 44px; height: 44px; border-radius: var(--radius);
+            display: flex; align-items: center; justify-content: center;
+            margin-bottom: var(--sp-4);
+        }
+        .feature-icon svg { width: 20px; height: 20px; }
+        .feature-icon-accent { background: var(--accent-dim); color: var(--accent); }
+        .feature-icon-green { background: var(--green-dim); color: var(--green); }
+        .feature-icon-cyan { background: var(--cyan-dim); color: var(--cyan); }
+        .feature-icon-orange { background: var(--orange-dim); color: var(--orange); }
+        .feature-icon-pink { background: var(--pink-dim); color: var(--pink); }
+        .feature-icon-purple { background: var(--purple-dim); color: var(--purple); }
+        .feature-title { font-size: var(--text-lg); font-weight: 600; margin-bottom: var(--sp-2); }
+        .feature-desc { font-size: var(--text-base); color: var(--text-secondary); line-height: 1.6; }
+        .feature-code {
+            display: inline-block; margin-top: var(--sp-3);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: var(--text-xs); color: var(--accent);
+            background: var(--accent-dim); padding: var(--sp-1) var(--sp-2);
+            border-radius: var(--radius-sm);
+        }
+
+        /* ============================================
+           10. TABS COMPONENT
+           ============================================ */
+        .tabs-bar {
+            display: flex; gap: var(--sp-1); padding: var(--sp-1);
+            background: var(--bg-glass); border: 1px solid var(--border);
+            border-radius: var(--radius-full); width: fit-content;
+            margin-bottom: var(--sp-8);
+        }
+        .tab-btn {
+            padding: var(--sp-2) var(--sp-5); border: none; background: none;
+            color: var(--text-muted); font-size: var(--text-sm); font-weight: 500;
+            border-radius: var(--radius-full); cursor: pointer;
+            transition: all var(--duration-fast);
+        }
+        .tab-btn:hover { color: var(--text-secondary); }
+        .tab-btn-active {
+            background: linear-gradient(135deg, var(--accent), var(--cyan));
+            color: var(--bg-primary); font-weight: 600;
+        }
+        .tab-content { display: none; animation: tab-fade-in var(--duration-base) var(--ease-out); }
+        .tab-content-active { display: block; }
+        @keyframes tab-fade-in {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ============================================
+           11. COMMAND REFERENCE
+           ============================================ */
+        .cmd-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-4); }
+        .cmd-group-card { padding: var(--sp-6); }
+        .cmd-group-title {
+            font-size: var(--text-lg); font-weight: 600; margin-bottom: var(--sp-4);
+            display: flex; align-items: center; gap: var(--sp-2);
+        }
+        .cmd-group-icon {
+            width: 28px; height: 28px; border-radius: var(--radius-sm);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .cmd-group-icon svg { width: 14px; height: 14px; }
+        .cmd-item {
+            display: flex; justify-content: space-between; align-items: baseline;
+            padding: var(--sp-2) 0;
+            border-bottom: 1px solid var(--border);
+            gap: var(--sp-3);
+        }
+        .cmd-item:last-child { border-bottom: none; }
+        .cmd-name {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: var(--text-xs); color: var(--accent); white-space: nowrap;
+        }
+        .cmd-desc { font-size: var(--text-xs); color: var(--text-muted); text-align: right; }
+
+        /* ============================================
+           12. CODE BLOCKS
+           ============================================ */
+        .code-layout { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-6); align-items: start; }
+        .code-info-title { font-size: var(--text-2xl); font-weight: 600; margin-bottom: var(--sp-3); }
+        .code-info-desc { font-size: var(--text-base); color: var(--text-secondary); line-height: 1.7; margin-bottom: var(--sp-6); }
+        .code-info-list { display: flex; flex-direction: column; gap: var(--sp-3); list-style: none; }
+        .code-info-item { display: flex; align-items: center; gap: var(--sp-3); font-size: var(--text-sm); color: var(--text-secondary); }
+        .code-info-dot { width: 6px; height: 6px; min-width: 6px; background: var(--green); border-radius: 50%; }
+
+        .code-block {
+            background: var(--bg-secondary); border: 1px solid var(--border);
+            border-radius: var(--radius-lg); overflow: hidden;
+        }
+        .code-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--border);
+        }
+        .code-dots { display: flex; gap: 6px; }
+        .code-dot { width: 10px; height: 10px; border-radius: 50%; background: rgba(255, 255, 255, 0.08); }
+        .code-filename { font-family: 'JetBrains Mono', monospace; font-size: var(--text-xs); color: var(--text-muted); }
+        .code-header-right { display: flex; align-items: center; gap: var(--sp-3); }
+        .code-content { padding: var(--sp-5); overflow-x: auto; }
+        .code-content pre {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: var(--text-sm); line-height: 1.7; color: var(--text-secondary);
+        }
+        .code-content .cm { color: var(--text-muted); }
+        .code-content .cmd { color: var(--green); }
+
+        /* ============================================
+           13. INSTALL METHODS
+           ============================================ */
+        .install-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-4); }
+        .install-card { padding: var(--sp-6); }
+        .install-card-title { font-size: var(--text-lg); font-weight: 600; margin-bottom: var(--sp-3); }
+        .install-card p { font-size: var(--text-base); color: var(--text-secondary); line-height: 1.6; }
+
+        /* ============================================
+           14. CONFIG TABLE
+           ============================================ */
+        .config-card { padding: var(--sp-6); margin-bottom: var(--sp-4); }
+        .config-title { font-size: var(--text-lg); font-weight: 600; margin-bottom: var(--sp-4); }
+        .config-table { width: 100%; border-collapse: collapse; }
+        .config-table th, .config-table td {
+            padding: var(--sp-3) var(--sp-4); text-align: left;
+            border-bottom: 1px solid var(--border); font-size: var(--text-base);
+        }
+        .config-table th {
+            color: var(--text-muted); font-weight: 500;
+            font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.06em;
+        }
+        .config-table td:first-child {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: var(--text-sm); color: var(--accent); white-space: nowrap;
+        }
+        .config-table td:last-child { color: var(--text-secondary); }
+        .config-table tr:last-child td { border-bottom: none; }
+
+        /* ============================================
+           15. FOOTER
+           ============================================ */
+        .footer { border-top: 1px solid var(--border); padding: var(--sp-12) var(--sp-6); margin-top: var(--sp-16); }
+        .footer-inner {
+            max-width: 1200px; margin: 0 auto;
+            display: grid; grid-template-columns: 1fr auto auto;
+            gap: var(--sp-10); align-items: start;
+        }
+        .footer-brand { display: flex; flex-direction: column; gap: var(--sp-3); }
+        .footer-brand-name { font-weight: 700; font-size: var(--text-lg); display: flex; align-items: center; gap: var(--sp-2); }
+        .footer-brand-text { font-size: var(--text-sm); color: var(--text-muted); line-height: 1.6; }
+        .footer-badges { display: flex; gap: var(--sp-2); margin-top: var(--sp-2); }
+        .footer-badge {
+            display: inline-flex; align-items: center;
+            padding: var(--sp-1) var(--sp-3);
+            background: var(--bg-glass); border: 1px solid var(--border);
+            border-radius: var(--radius-full);
+            font-size: 11px; color: var(--text-muted); font-weight: 500;
+        }
+        .footer-col-title {
+            font-size: var(--text-xs); font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: var(--sp-4);
+        }
+        .footer-col-links { display: flex; flex-direction: column; gap: var(--sp-3); }
+        .footer-link { font-size: var(--text-sm); color: var(--text-secondary); transition: color var(--duration-fast); }
+        .footer-link:hover { color: var(--text-primary); }
+        .footer-bottom {
+            max-width: 1200px; margin: var(--sp-8) auto 0; padding-top: var(--sp-6);
+            border-top: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .footer-copyright { font-size: var(--text-sm); color: var(--text-muted); }
+        .back-to-top {
+            display: flex; align-items: center; gap: var(--sp-2);
+            font-size: var(--text-sm); color: var(--text-muted);
+            background: none; border: none; cursor: pointer;
+            transition: color var(--duration-fast);
+        }
+        .back-to-top:hover { color: var(--text-primary); }
+        .back-to-top svg { width: 14px; height: 14px; }
+
+        /* ============================================
+           16. SCROLL REVEAL
+           ============================================ */
+        .reveal {
+            opacity: 0; transform: translateY(24px);
+            transition: opacity 0.6s var(--ease-out), transform 0.6s var(--ease-out);
+        }
+        .reveal-visible { opacity: 1; transform: translateY(0); }
+        .reveal-stagger > .reveal { transition-delay: calc(var(--reveal-delay, 0) * 80ms); }
+
+        /* ============================================
+           17. RESPONSIVE — 1024px
+           ============================================ */
+        @media (max-width: 1024px) {
+            .nav-links { display: none; }
+            .nav-cta { display: none; }
+            .nav-hamburger { display: flex; }
+            .nav-overlay { display: block; }
+            .nav-mobile { display: flex; }
+            .features-bento { grid-template-columns: repeat(2, 1fr); }
+            .cmd-grid { grid-template-columns: 1fr; }
+            .code-layout { grid-template-columns: 1fr; }
+            .install-grid { grid-template-columns: 1fr; }
+        }
+
+        /* ============================================
+           18. RESPONSIVE — 640px
+           ============================================ */
+        @media (max-width: 640px) {
+            .features-bento { grid-template-columns: 1fr; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .hero-actions { flex-direction: column; width: 100%; }
+            .btn-primary, .btn-secondary { justify-content: center; }
+            .install-bar { flex-direction: column; gap: var(--sp-2); text-align: center; }
+            .footer-inner { grid-template-columns: 1fr; gap: var(--sp-8); }
+            .footer-bottom { flex-direction: column; gap: var(--sp-4); text-align: center; }
+            .section { padding: var(--sp-16) var(--sp-4); }
+        }
+
+        /* ============================================
+           19. ACCESSIBILITY
+           ============================================ */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+            html { scroll-behavior: auto; }
+            .reveal { opacity: 1; transform: none; }
+        }
+        :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+        .body-locked { overflow: hidden; }
+    </style>
+</head>
+<body>
+    <!-- Background -->
+    <div class="bg-blobs">
+        <div class="bg-blob bg-blob-1"></div>
+        <div class="bg-blob bg-blob-2"></div>
+        <div class="bg-blob bg-blob-3"></div>
+    </div>
+    <div class="bg-dots"></div>
+
+    <div class="content-wrapper">
+        <!-- ==================== NAV ==================== -->
+        <nav class="nav" id="navbar">
+            <div class="nav-inner">
+                <a href="#top" class="nav-logo">
+                    <div class="nav-logo-icon">J</div>
+                    jenkins-cli
+                </a>
+                <ul class="nav-links">
+                    <li><a href="#features" class="nav-link" data-nav>Features</a></li>
+                    <li><a href="#install" class="nav-link" data-nav>Install</a></li>
+                    <li><a href="#commands" class="nav-link" data-nav>Commands</a></li>
+                    <li><a href="#examples" class="nav-link" data-nav>Examples</a></li>
+                    <li><a href="#config" class="nav-link" data-nav>Config</a></li>
+                </ul>
+                <a href="https://github.com/PhilipKram/Jenkins-CLI" class="nav-cta" target="_blank" rel="noopener">
+                    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                    GitHub
+                </a>
+                <button class="nav-hamburger" id="nav-hamburger" aria-label="Toggle navigation menu">
+                    <span class="hamburger-lines">
+                        <span class="hamburger-line"></span>
+                        <span class="hamburger-line"></span>
+                        <span class="hamburger-line"></span>
+                    </span>
+                </button>
+            </div>
+        </nav>
+
+        <!-- Mobile overlay + panel -->
+        <div class="nav-overlay" id="nav-overlay"></div>
+        <div class="nav-mobile" id="nav-mobile">
+            <a href="#features" class="nav-mobile-link" data-mobile-link>Features</a>
+            <a href="#install" class="nav-mobile-link" data-mobile-link>Install</a>
+            <a href="#commands" class="nav-mobile-link" data-mobile-link>Commands</a>
+            <a href="#examples" class="nav-mobile-link" data-mobile-link>Examples</a>
+            <a href="#config" class="nav-mobile-link" data-mobile-link>Config</a>
+            <a href="https://github.com/PhilipKram/Jenkins-CLI" class="nav-mobile-cta" target="_blank" rel="noopener">
+                <svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                GitHub
+            </a>
+        </div>
+
+        <!-- ==================== HERO ==================== -->
+        <section class="hero" id="top">
+            <div class="hero-badge">
+                <span class="hero-badge-dot"></span>
+                Open Source &middot; Written in Go &middot; MIT License
+            </div>
+            <h1 class="hero-title">
+                Jenkins from<br>
+                <span class="gradient-text">Your Terminal</span>
+            </h1>
+            <p class="hero-desc">
+                Control Jenkins from the command line. Manage jobs, builds, pipelines, nodes, credentials, views, plugins, and system administration &mdash; without leaving your terminal.
+            </p>
+            <div class="hero-actions">
+                <a href="#install" class="btn-primary">
+                    Get Started
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                </a>
+                <a href="https://github.com/PhilipKram/Jenkins-CLI" class="btn-secondary" target="_blank" rel="noopener">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                    View on GitHub
+                </a>
+            </div>
+            <div class="install-bar">
+                <code>$ <span class="hl">brew install</span> PhilipKram/tap/jenkins-cli</code>
+                <button class="copy-btn" data-copy="brew install PhilipKram/tap/jenkins-cli" title="Copy to clipboard">
+                    <svg class="icon-clipboard" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                    <svg class="icon-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span class="copy-tooltip">Copied!</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- ==================== STATS ==================== -->
+        <div class="stats-wrapper container">
+            <div class="stats-grid reveal">
+                <div class="stat-card">
+                    <div class="stat-value stat-value-accent" data-count="40">0</div>
+                    <div class="stat-label">Commands</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value stat-value-cyan">Go</div>
+                    <div class="stat-label">Written In</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value stat-value-green" data-count="11">0</div>
+                    <div class="stat-label">Command Groups</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value stat-value-orange">MIT</div>
+                    <div class="stat-label">License</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== FEATURES ==================== -->
+        <section class="section" id="features">
+            <div class="section-label reveal">Why jenkins-cli</div>
+            <h2 class="section-title reveal">Everything Jenkins, one command away</h2>
+            <p class="section-desc reveal">
+                A powerful CLI that brings the full Jenkins workflow to your terminal with an intuitive, consistent interface.
+            </p>
+            <div class="bento-grid features-bento reveal-stagger">
+                <div class="glass-card gradient-border feature-card reveal" style="--reveal-delay: 0">
+                    <div class="feature-icon feature-icon-accent">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>
+                    </div>
+                    <h3 class="feature-title">Jobs</h3>
+                    <p class="feature-desc">List, trigger, enable, disable, and delete jobs. Supports parameterized builds and folder navigation.</p>
+                    <span class="feature-code">jenkins-cli jobs build my-pipeline -p BRANCH=main</span>
+                </div>
+                <div class="glass-card gradient-border feature-card reveal" style="--reveal-delay: 1">
+                    <div class="feature-icon feature-icon-green">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                    </div>
+                    <h3 class="feature-title">Builds</h3>
+                    <p class="feature-desc">Stream logs in real-time, watch builds with desktop notifications, download artifacts, and force kill stuck builds.</p>
+                    <span class="feature-code">jenkins-cli builds watch my-pipeline last</span>
+                </div>
+                <div class="glass-card gradient-border feature-card reveal" style="--reveal-delay: 2">
+                    <div class="feature-icon feature-icon-cyan">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+                    </div>
+                    <h3 class="feature-title">Nodes</h3>
+                    <p class="feature-desc">Manage build agents &mdash; list nodes, view details, take agents offline for maintenance, and bring them back online.</p>
+                    <span class="feature-code">jenkins-cli nodes offline my-agent -m "Maintenance"</span>
+                </div>
+                <div class="glass-card gradient-border feature-card reveal" style="--reveal-delay: 3">
+                    <div class="feature-icon feature-icon-purple">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                    </div>
+                    <h3 class="feature-title">Plugins</h3>
+                    <p class="feature-desc">List installed plugins, check for available updates, and keep your Jenkins instance up to date.</p>
+                    <span class="feature-code">jenkins-cli plugins list -u</span>
+                </div>
+                <div class="glass-card gradient-border feature-card reveal" style="--reveal-delay: 4">
+                    <div class="feature-icon feature-icon-pink">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+                    </div>
+                    <h3 class="feature-title">System Admin</h3>
+                    <p class="feature-desc">View server info, check your identity, perform safe restarts, and manage quiet mode from the terminal.</p>
+                    <span class="feature-code">jenkins-cli system restart --safe</span>
+                </div>
+                <div class="glass-card gradient-border feature-card reveal" style="--reveal-delay: 5">
+                    <div class="feature-icon feature-icon-orange">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                    </div>
+                    <h3 class="feature-title">Multi-Auth</h3>
+                    <p class="feature-desc">Basic auth with API tokens, OAuth2 browser login with PKCE, or bearer tokens for SSO and CI/CD pipelines.</p>
+                    <span class="feature-code">jenkins-cli auth login</span>
+                </div>
+                <div class="glass-card gradient-border feature-card reveal" style="--reveal-delay: 6">
+                    <div class="feature-icon feature-icon-green">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                    </div>
+                    <h3 class="feature-title">Pipelines</h3>
+                    <p class="feature-desc">Replay pipeline builds with modified Jenkinsfiles, view stage status, and fetch per-stage logs.</p>
+                    <span class="feature-code">jenkins-cli pipeline stages my-pipeline</span>
+                </div>
+                <div class="glass-card gradient-border feature-card reveal" style="--reveal-delay: 7">
+                    <div class="feature-icon feature-icon-orange">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+                    </div>
+                    <h3 class="feature-title">Credentials</h3>
+                    <p class="feature-desc">List, inspect, create, and delete credentials. Supports username-password, secret text, SSH keys, and certificates.</p>
+                    <span class="feature-code">jenkins-cli credentials list</span>
+                </div>
+                <div class="glass-card gradient-border feature-card reveal" style="--reveal-delay: 8">
+                    <div class="feature-icon feature-icon-cyan">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                    </div>
+                    <h3 class="feature-title">Views</h3>
+                    <p class="feature-desc">Create and manage views to organize your Jenkins dashboard. Add or remove jobs from views.</p>
+                    <span class="feature-code">jenkins-cli view create my-view</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== INSTALL ==================== -->
+        <section class="section" id="install">
+            <div class="section-label reveal">Installation</div>
+            <h2 class="section-title reveal">Get started in seconds</h2>
+            <p class="section-desc reveal">
+                Multiple installation methods to fit your workflow. Pick whichever suits you best.
+            </p>
+
+            <div class="install-grid reveal-stagger">
+                <div class="glass-card gradient-border install-card reveal" style="--reveal-delay: 0">
+                    <h3 class="install-card-title">Homebrew (macOS &amp; Linux)</h3>
+                    <div class="code-block" style="margin-top: var(--sp-3);">
+                        <div class="code-header">
+                            <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+                            <div class="code-header-right">
+                                <span class="code-filename">terminal</span>
+                                <button class="copy-btn" data-copy="brew install PhilipKram/tap/jenkins-cli" title="Copy">
+                                    <svg class="icon-clipboard" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                                    <svg class="icon-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                    <span class="copy-tooltip">Copied!</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="code-content">
+<pre><span class="cmd">brew install PhilipKram/tap/jenkins-cli</span></pre>
+                        </div>
+                    </div>
+                </div>
+                <div class="glass-card gradient-border install-card reveal" style="--reveal-delay: 1">
+                    <h3 class="install-card-title">Go Install</h3>
+                    <div class="code-block" style="margin-top: var(--sp-3);">
+                        <div class="code-header">
+                            <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+                            <div class="code-header-right">
+                                <span class="code-filename">terminal</span>
+                                <button class="copy-btn" data-copy="go install github.com/PhilipKram/jenkins-cli@latest" title="Copy">
+                                    <svg class="icon-clipboard" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                                    <svg class="icon-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                    <span class="copy-tooltip">Copied!</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="code-content">
+<pre><span class="cm"># Requires Go 1.22+</span>
+<span class="cmd">go install github.com/PhilipKram/jenkins-cli@latest</span></pre>
+                        </div>
+                    </div>
+                </div>
+                <div class="glass-card gradient-border install-card reveal" style="--reveal-delay: 2">
+                    <h3 class="install-card-title">Binary Download</h3>
+                    <p>Download pre-built binaries for Linux, macOS, and Windows from the <a href="https://github.com/PhilipKram/Jenkins-CLI/releases" style="color: var(--accent);">releases page</a>.</p>
+                    <p style="margin-top: var(--sp-2); font-size: var(--text-xs); color: var(--text-muted);">Available for amd64 and arm64.</p>
+                </div>
+                <div class="glass-card gradient-border install-card reveal" style="--reveal-delay: 3">
+                    <h3 class="install-card-title">Build from Source</h3>
+                    <div class="code-block" style="margin-top: var(--sp-3);">
+                        <div class="code-header">
+                            <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+                            <div class="code-header-right"><span class="code-filename">terminal</span></div>
+                        </div>
+                        <div class="code-content">
+<pre><span class="cmd">git clone https://github.com/PhilipKram/Jenkins-CLI.git</span>
+<span class="cmd">cd Jenkins-CLI</span>
+<span class="cmd">go build -o jenkins-cli .</span></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Authentication sub-section -->
+            <div style="margin-top: var(--sp-16);">
+                <h3 class="section-title reveal" style="font-size: var(--text-3xl);">Authentication</h3>
+                <p class="section-desc reveal">Three flexible auth methods. Basic auth is the default &mdash; run <code style="color: var(--accent);">jenkins-cli configure</code> to get started.</p>
+
+                <div class="code-layout reveal">
+                    <div>
+                        <h3 class="code-info-title">Basic Auth (Default)</h3>
+                        <p class="code-info-desc">
+                            Configure your Jenkins URL, username, and API token. Generate a token from Jenkins &rarr; Your Name &rarr; Configure &rarr; API Token.
+                        </p>
+                        <ul class="code-info-list">
+                            <li class="code-info-item"><span class="code-info-dot"></span> Interactive setup wizard</li>
+                            <li class="code-info-item"><span class="code-info-dot"></span> API token authentication</li>
+                            <li class="code-info-item"><span class="code-info-dot"></span> Config stored with 0600 permissions</li>
+                            <li class="code-info-item"><span class="code-info-dot"></span> Override via environment variables</li>
+                        </ul>
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header">
+                            <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+                            <div class="code-header-right">
+                                <span class="code-filename">terminal</span>
+                                <button class="copy-btn" data-copy-code="auth-code" title="Copy code">
+                                    <svg class="icon-clipboard" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                                    <svg class="icon-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                    <span class="copy-tooltip">Copied!</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="code-content" id="auth-code">
+<pre><span class="cm"># Interactive setup (prompts for URL, user, token)</span>
+<span class="cmd">jenkins-cli configure</span>
+
+<span class="cm"># OAuth2 login (opens browser with PKCE)</span>
+<span class="cmd">jenkins-cli auth login \
+  --client-id YOUR_CLIENT_ID \
+  --auth-url https://your-idp.com/authorize \
+  --token-url https://your-idp.com/token</span>
+
+<span class="cm"># Set a bearer token for SSO/CI</span>
+<span class="cmd">jenkins-cli auth token eyJhbGciOi...</span>
+
+<span class="cm"># Check auth status</span>
+<span class="cmd">jenkins-cli auth status</span></pre>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Auth cards -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--sp-4); margin-top: var(--sp-8);" class="reveal">
+                    <div class="glass-card" style="padding: var(--sp-6);">
+                        <h4 style="font-size: var(--text-lg); font-weight: 600; margin-bottom: var(--sp-3);">Basic Auth</h4>
+                        <p style="font-size: var(--text-base); color: var(--text-secondary);">
+                            Username + API token. The simplest setup for most Jenkins servers. Run <code style="color: var(--accent); font-size: var(--text-xs);">jenkins-cli configure</code>.
+                        </p>
+                    </div>
+                    <div class="glass-card" style="padding: var(--sp-6);">
+                        <h4 style="font-size: var(--text-lg); font-weight: 600; margin-bottom: var(--sp-3);">OAuth2</h4>
+                        <p style="font-size: var(--text-base); color: var(--text-secondary);">
+                            Browser-based login with PKCE for Jenkins instances using GitHub, GitLab, or OpenID Connect OAuth2 plugins.
+                        </p>
+                    </div>
+                    <div class="glass-card" style="padding: var(--sp-6);">
+                        <h4 style="font-size: var(--text-lg); font-weight: 600; margin-bottom: var(--sp-3);">Bearer Token</h4>
+                        <p style="font-size: var(--text-base); color: var(--text-secondary);">
+                            For SSO providers, CI/CD pipelines, or manual token management. Set interactively or pass directly.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== COMMANDS ==================== -->
+        <section class="section" id="commands">
+            <div class="section-label reveal">Command Reference</div>
+            <h2 class="section-title reveal">Every command at your fingertips</h2>
+            <p class="section-desc reveal">
+                Comprehensive coverage of Jenkins features organized into intuitive command groups.
+            </p>
+
+            <div class="tabs-bar reveal" id="commands-tabs">
+                <button class="tab-btn tab-btn-active" data-tab="cmd-core">Core</button>
+                <button class="tab-btn" data-tab="cmd-builds">Builds &amp; Nodes</button>
+                <button class="tab-btn" data-tab="cmd-pipeline">Pipeline &amp; More</button>
+                <button class="tab-btn" data-tab="cmd-system">System &amp; Plugins</button>
+            </div>
+
+            <!-- Core Commands -->
+            <div class="tab-content tab-content-active" data-tab-content="cmd-core">
+                <div class="cmd-grid">
+                    <div class="glass-card cmd-group-card">
+                        <div class="cmd-group-title">
+                            <div class="cmd-group-icon feature-icon-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg></div>
+                            Jobs
+                        </div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli jobs list</span><span class="cmd-desc">List all jobs</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli jobs list &lt;folder&gt;</span><span class="cmd-desc">List jobs in a folder</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli jobs info &lt;name&gt;</span><span class="cmd-desc">Show job details</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli jobs build &lt;name&gt;</span><span class="cmd-desc">Trigger a build</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli jobs build -p K=V</span><span class="cmd-desc">Parameterized build</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli jobs enable &lt;name&gt;</span><span class="cmd-desc">Enable a job</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli jobs disable &lt;name&gt;</span><span class="cmd-desc">Disable a job</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli jobs delete &lt;name&gt;</span><span class="cmd-desc">Delete a job</span></div>
+                    </div>
+                    <div class="glass-card cmd-group-card">
+                        <div class="cmd-group-title">
+                            <div class="cmd-group-icon feature-icon-orange"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg></div>
+                            Authentication
+                        </div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli configure</span><span class="cmd-desc">Interactive setup wizard</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli auth login</span><span class="cmd-desc">OAuth2 login (opens browser)</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli auth token</span><span class="cmd-desc">Set a bearer token</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli auth status</span><span class="cmd-desc">View auth status</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli auth refresh</span><span class="cmd-desc">Refresh OAuth token</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli auth logout</span><span class="cmd-desc">Clear all credentials</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Builds & Nodes -->
+            <div class="tab-content" data-tab-content="cmd-builds">
+                <div class="cmd-grid">
+                    <div class="glass-card cmd-group-card">
+                        <div class="cmd-group-title">
+                            <div class="cmd-group-icon feature-icon-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+                            Builds
+                        </div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli builds list &lt;job&gt;</span><span class="cmd-desc">List recent builds</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli builds list -n 20</span><span class="cmd-desc">List with custom count</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli builds info &lt;job&gt; &lt;id&gt;</span><span class="cmd-desc">Show build details</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli builds last &lt;job&gt;</span><span class="cmd-desc">Show last build</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli builds log &lt;job&gt; &lt;id&gt;</span><span class="cmd-desc">View console output</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli builds log &lt;job&gt; &lt;id&gt; -f</span><span class="cmd-desc">Stream logs in real time</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli builds stop &lt;job&gt; &lt;id&gt;</span><span class="cmd-desc">Stop a running build</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli builds kill &lt;job&gt; &lt;id&gt;</span><span class="cmd-desc">Force kill a build</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli builds watch &lt;job&gt; &lt;id&gt;</span><span class="cmd-desc">Watch until completion</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli builds artifacts &lt;job&gt; &lt;id&gt;</span><span class="cmd-desc">List build artifacts</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli builds artifacts --download</span><span class="cmd-desc">Download artifacts</span></div>
+                    </div>
+                    <div class="glass-card cmd-group-card">
+                        <div class="cmd-group-title">
+                            <div class="cmd-group-icon feature-icon-cyan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg></div>
+                            Nodes
+                        </div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli nodes list</span><span class="cmd-desc">List all nodes/agents</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli nodes info &lt;name&gt;</span><span class="cmd-desc">Show node details</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli nodes offline &lt;name&gt;</span><span class="cmd-desc">Take node offline</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli nodes online &lt;name&gt;</span><span class="cmd-desc">Bring node online</span></div>
+                    </div>
+                    <div class="glass-card cmd-group-card">
+                        <div class="cmd-group-title">
+                            <div class="cmd-group-icon feature-icon-pink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></div>
+                            Build Queue
+                        </div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli queue list</span><span class="cmd-desc">List queued builds</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli queue cancel &lt;id&gt;</span><span class="cmd-desc">Cancel a queued item</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pipeline, Credentials, Views -->
+            <div class="tab-content" data-tab-content="cmd-pipeline">
+                <div class="cmd-grid">
+                    <div class="glass-card cmd-group-card">
+                        <div class="cmd-group-title">
+                            <div class="cmd-group-icon feature-icon-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+                            Pipeline
+                        </div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli pipeline replay &lt;job&gt; &lt;id&gt;</span><span class="cmd-desc">Replay a pipeline build</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli pipeline replay -s FILE</span><span class="cmd-desc">Replay with modified Jenkinsfile</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli pipeline replay -f</span><span class="cmd-desc">Replay and stream logs</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli pipeline stages &lt;job&gt;</span><span class="cmd-desc">Show pipeline stages</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli pipeline stages --logs STAGE</span><span class="cmd-desc">Get logs for a stage</span></div>
+                    </div>
+                    <div class="glass-card cmd-group-card">
+                        <div class="cmd-group-title">
+                            <div class="cmd-group-icon feature-icon-orange"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg></div>
+                            Credentials
+                        </div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli credentials list</span><span class="cmd-desc">List all credentials</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli credentials list &lt;domain&gt;</span><span class="cmd-desc">List by domain</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli credentials info &lt;id&gt;</span><span class="cmd-desc">Show credential details</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli credentials create --type</span><span class="cmd-desc">Create a credential</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli credentials delete &lt;id&gt;</span><span class="cmd-desc">Delete a credential</span></div>
+                    </div>
+                    <div class="glass-card cmd-group-card">
+                        <div class="cmd-group-title">
+                            <div class="cmd-group-icon feature-icon-cyan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></div>
+                            Views
+                        </div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli view list</span><span class="cmd-desc">List all views</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli view info &lt;name&gt;</span><span class="cmd-desc">Show view details</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli view create &lt;name&gt;</span><span class="cmd-desc">Create a view</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli view delete &lt;name&gt;</span><span class="cmd-desc">Delete a view</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli view add-job &lt;view&gt; &lt;job&gt;</span><span class="cmd-desc">Add job to view</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli view remove-job &lt;view&gt; &lt;job&gt;</span><span class="cmd-desc">Remove job from view</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System & Plugins -->
+            <div class="tab-content" data-tab-content="cmd-system">
+                <div class="cmd-grid">
+                    <div class="glass-card cmd-group-card">
+                        <div class="cmd-group-title">
+                            <div class="cmd-group-icon feature-icon-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></div>
+                            System
+                        </div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli system info</span><span class="cmd-desc">Show server info &amp; version</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli system whoami</span><span class="cmd-desc">Show current user</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli system restart --safe</span><span class="cmd-desc">Safe restart</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli system quiet-down</span><span class="cmd-desc">Enter quiet mode</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli system quiet-down --cancel</span><span class="cmd-desc">Cancel quiet mode</span></div>
+                    </div>
+                    <div class="glass-card cmd-group-card">
+                        <div class="cmd-group-title">
+                            <div class="cmd-group-icon feature-icon-purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></div>
+                            Plugins
+                        </div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli plugins list</span><span class="cmd-desc">List installed plugins</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli plugins list -u</span><span class="cmd-desc">Show plugins with updates</span></div>
+                    </div>
+                    <div class="glass-card cmd-group-card">
+                        <div class="cmd-group-title">
+                            <div class="cmd-group-icon feature-icon-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></div>
+                            Utilities
+                        </div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli open</span><span class="cmd-desc">Open Jenkins dashboard</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli open &lt;job&gt;</span><span class="cmd-desc">Open a specific job</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli configure test</span><span class="cmd-desc">Test connection &amp; auth</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli upgrade</span><span class="cmd-desc">Self-upgrade to latest version</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli completion bash</span><span class="cmd-desc">Generate shell completions</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Global flags note -->
+            <div class="glass-card reveal" style="padding: var(--sp-5) var(--sp-6); margin-top: var(--sp-8);">
+                <p style="font-size: var(--text-sm); color: var(--text-secondary);">
+                    <strong style="color: var(--text-primary);">Global Flags:</strong>
+                    <code style="color: var(--accent); font-size: var(--text-xs); margin: 0 var(--sp-1);">--json</code> JSON output &nbsp;&middot;&nbsp;
+                    <code style="color: var(--accent); font-size: var(--text-xs); margin: 0 var(--sp-1);">--timeout</code> Request timeout (default: 30s) &nbsp;&middot;&nbsp;
+                    <code style="color: var(--accent); font-size: var(--text-xs); margin: 0 var(--sp-1);">--retries</code> Max retries (default: 3)
+                </p>
+            </div>
+        </section>
+
+        <!-- ==================== EXAMPLES ==================== -->
+        <section class="section" id="examples">
+            <div class="section-label reveal">Examples</div>
+            <h2 class="section-title reveal">Real-world workflows</h2>
+            <p class="section-desc reveal">
+                Common patterns for day-to-day Jenkins usage, straight from the terminal.
+            </p>
+
+            <div class="tabs-bar reveal" id="examples-tabs">
+                <button class="tab-btn tab-btn-active" data-tab="ex-jobs">Job Workflow</button>
+                <button class="tab-btn" data-tab="ex-builds">Build Monitoring</button>
+                <button class="tab-btn" data-tab="ex-admin">System Admin</button>
+            </div>
+
+            <!-- Job Workflow -->
+            <div class="tab-content tab-content-active reveal" data-tab-content="ex-jobs">
+                <div class="code-layout">
+                    <div>
+                        <h3 class="code-info-title">Complete Job Workflow</h3>
+                        <p class="code-info-desc">
+                            Trigger builds, monitor progress, and view logs &mdash; all without opening the Jenkins web UI.
+                        </p>
+                        <ul class="code-info-list">
+                            <li class="code-info-item"><span class="code-info-dot"></span> Trigger parameterized builds</li>
+                            <li class="code-info-item"><span class="code-info-dot"></span> Wait for completion with notifications</li>
+                            <li class="code-info-item"><span class="code-info-dot"></span> Stream console output in real time</li>
+                            <li class="code-info-item"><span class="code-info-dot"></span> JSON output for scripting</li>
+                        </ul>
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header">
+                            <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+                            <div class="code-header-right">
+                                <span class="code-filename">terminal</span>
+                                <button class="copy-btn" data-copy-code="jobs-code" title="Copy code">
+                                    <svg class="icon-clipboard" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                                    <svg class="icon-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                    <span class="copy-tooltip">Copied!</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="code-content" id="jobs-code">
+<pre><span class="cm"># List all jobs</span>
+<span class="cmd">jenkins-cli jobs list</span>
+
+<span class="cm"># Trigger a parameterized build</span>
+<span class="cmd">jenkins-cli jobs build my-pipeline \
+  -p BRANCH=main -p ENV=staging</span>
+
+<span class="cm"># Trigger and wait for completion (with desktop notification)</span>
+<span class="cmd">jenkins-cli jobs build my-pipeline --wait --follow</span>
+
+<span class="cm"># Watch a build until completion</span>
+<span class="cmd">jenkins-cli builds watch my-pipeline last</span>
+
+<span class="cm"># Stream console output in real time</span>
+<span class="cmd">jenkins-cli builds log my-pipeline 42 -f</span>
+
+<span class="cm"># Get build data as JSON</span>
+<span class="cmd">jenkins-cli builds list my-pipeline --json | jq '.[0]'</span></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Build Monitoring -->
+            <div class="tab-content" data-tab-content="ex-builds">
+                <div class="code-layout">
+                    <div>
+                        <h3 class="code-info-title">Build Monitoring</h3>
+                        <p class="code-info-desc">
+                            Monitor builds across jobs, check the queue, and manage running builds without the web UI.
+                        </p>
+                        <ul class="code-info-list">
+                            <li class="code-info-item"><span class="code-info-dot"></span> Watch builds with notifications</li>
+                            <li class="code-info-item"><span class="code-info-dot"></span> Download build artifacts</li>
+                            <li class="code-info-item"><span class="code-info-dot"></span> Force kill stuck builds</li>
+                            <li class="code-info-item"><span class="code-info-dot"></span> View pipeline stages</li>
+                        </ul>
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header">
+                            <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+                            <div class="code-header-right"><span class="code-filename">terminal</span></div>
+                        </div>
+                        <div class="code-content">
+<pre><span class="cm"># Watch a build until completion (with desktop notification)</span>
+<span class="cmd">jenkins-cli builds watch my-pipeline last --timeout 30m</span>
+
+<span class="cm"># View pipeline stages</span>
+<span class="cmd">jenkins-cli pipeline stages my-pipeline last</span>
+
+<span class="cm"># Get logs for a specific stage</span>
+<span class="cmd">jenkins-cli pipeline stages my-pipeline 42 --logs "Build"</span>
+
+<span class="cm"># Force kill a stuck build</span>
+<span class="cmd">jenkins-cli builds kill my-pipeline 42 -y</span>
+
+<span class="cm"># Download build artifacts</span>
+<span class="cmd">jenkins-cli builds artifacts my-pipeline last --download</span>
+
+<span class="cm"># Download only JAR files</span>
+<span class="cmd">jenkins-cli builds artifacts my-pipeline 42 --download --filter "*.jar"</span></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Admin -->
+            <div class="tab-content" data-tab-content="ex-admin">
+                <div class="code-layout">
+                    <div>
+                        <h3 class="code-info-title">System Administration</h3>
+                        <p class="code-info-desc">
+                            Manage nodes, check system health, perform safe restarts, and handle plugin updates.
+                        </p>
+                        <ul class="code-info-list">
+                            <li class="code-info-item"><span class="code-info-dot"></span> Node management</li>
+                            <li class="code-info-item"><span class="code-info-dot"></span> Credential management</li>
+                            <li class="code-info-item"><span class="code-info-dot"></span> Safe restart with quiet mode</li>
+                            <li class="code-info-item"><span class="code-info-dot"></span> Self-upgrade</li>
+                        </ul>
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header">
+                            <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+                            <div class="code-header-right"><span class="code-filename">terminal</span></div>
+                        </div>
+                        <div class="code-content">
+<pre><span class="cm"># Check server info</span>
+<span class="cmd">jenkins-cli system info</span>
+<span class="cmd">jenkins-cli system whoami</span>
+
+<span class="cm"># Manage credentials</span>
+<span class="cmd">jenkins-cli credentials list</span>
+<span class="cmd">jenkins-cli credentials create --type username-password</span>
+
+<span class="cm"># Take a node offline for maintenance</span>
+<span class="cmd">jenkins-cli nodes offline build-agent-01 -m "Disk cleanup"</span>
+
+<span class="cm"># Enter quiet mode, then safe restart</span>
+<span class="cmd">jenkins-cli system quiet-down</span>
+<span class="cmd">jenkins-cli system restart --safe</span>
+
+<span class="cm"># Self-upgrade to latest version</span>
+<span class="cmd">jenkins-cli upgrade</span></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== CONFIGURATION ==================== -->
+        <section class="section" id="config">
+            <div class="section-label reveal">Configuration</div>
+            <h2 class="section-title reveal">Fully customizable</h2>
+            <p class="section-desc reveal">
+                Configuration stored in <code style="color: var(--accent);">~/.jenkins-cli/config.json</code> with <code style="color: var(--accent);">0600</code> permissions.
+            </p>
+
+            <div class="glass-card config-card reveal">
+                <h3 class="config-title">Environment Variables</h3>
+                <table class="config-table">
+                    <thead><tr><th>Variable</th><th>Description</th></tr></thead>
+                    <tbody>
+                        <tr><td>JENKINS_URL</td><td>Jenkins server URL</td></tr>
+                        <tr><td>JENKINS_USER</td><td>Username for basic auth</td></tr>
+                        <tr><td>JENKINS_TOKEN</td><td>API token for basic auth</td></tr>
+                        <tr><td>JENKINS_BEARER_TOKEN</td><td>Bearer token (overrides auth type to bearer)</td></tr>
+                        <tr><td>JENKINS_INSECURE</td><td>Skip TLS certificate verification</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4);" class="reveal">
+                <div class="glass-card config-card">
+                    <h3 class="config-title">Auth Methods</h3>
+                    <table class="config-table">
+                        <thead><tr><th>Method</th><th>Setup</th></tr></thead>
+                        <tbody>
+                            <tr><td>basic</td><td>jenkins-cli configure</td></tr>
+                            <tr><td>oauth2</td><td>jenkins-cli auth login</td></tr>
+                            <tr><td>bearer</td><td>jenkins-cli auth token</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="glass-card config-card">
+                    <h3 class="config-title">Shell Completion</h3>
+                    <table class="config-table">
+                        <thead><tr><th>Shell</th><th>Command</th></tr></thead>
+                        <tbody>
+                            <tr><td>bash</td><td>jenkins-cli completion bash</td></tr>
+                            <tr><td>zsh</td><td>jenkins-cli completion zsh</td></tr>
+                            <tr><td>fish</td><td>jenkins-cli completion fish</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Example config -->
+            <div class="code-block reveal" style="margin-top: var(--sp-8);">
+                <div class="code-header">
+                    <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+                    <div class="code-header-right">
+                        <span class="code-filename">setup</span>
+                        <button class="copy-btn" data-copy-code="config-code" title="Copy code">
+                            <svg class="icon-clipboard" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                            <svg class="icon-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                            <span class="copy-tooltip">Copied!</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="code-content" id="config-code">
+<pre><span class="cm"># Quick setup with basic auth</span>
+<span class="cmd">jenkins-cli configure</span>
+
+<span class="cm"># Or use environment variables</span>
+<span class="cmd">export JENKINS_URL="https://jenkins.example.com"</span>
+<span class="cmd">export JENKINS_USER="admin"</span>
+<span class="cmd">export JENKINS_TOKEN="your-api-token"</span>
+
+<span class="cm"># Generate shell completions</span>
+<span class="cmd">jenkins-cli completion zsh > "${fpath[1]}/_jenkins-cli"</span></pre>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== FOOTER ==================== -->
+        <footer class="footer">
+            <div class="footer-inner">
+                <div class="footer-brand">
+                    <div class="footer-brand-name">
+                        <div class="nav-logo-icon">J</div>
+                        jenkins-cli
+                    </div>
+                    <p class="footer-brand-text">Control Jenkins from the command line.</p>
+                    <div class="footer-badges">
+                        <span class="footer-badge">MIT License</span>
+                        <span class="footer-badge">Written in Go</span>
+                        <span class="footer-badge">Open Source</span>
+                    </div>
+                </div>
+                <div>
+                    <div class="footer-col-title">Resources</div>
+                    <div class="footer-col-links">
+                        <a href="https://github.com/PhilipKram/Jenkins-CLI" class="footer-link" target="_blank" rel="noopener">GitHub</a>
+                        <a href="https://github.com/PhilipKram/Jenkins-CLI/releases" class="footer-link" target="_blank" rel="noopener">Releases</a>
+                        <a href="https://github.com/PhilipKram/Jenkins-CLI/issues" class="footer-link" target="_blank" rel="noopener">Issues</a>
+                    </div>
+                </div>
+                <div>
+                    <div class="footer-col-title">Sections</div>
+                    <div class="footer-col-links">
+                        <a href="#features" class="footer-link">Features</a>
+                        <a href="#install" class="footer-link">Install</a>
+                        <a href="#commands" class="footer-link">Commands</a>
+                        <a href="#examples" class="footer-link">Examples</a>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom container">
+                <span class="footer-copyright">jenkins-cli &mdash; MIT License</span>
+                <button class="back-to-top" id="back-to-top">
+                    Back to top
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+                </button>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        (function() {
+            'use strict';
+
+            /* ---- Mobile nav ---- */
+            var hamburger = document.getElementById('nav-hamburger');
+            var overlay = document.getElementById('nav-overlay');
+            var mobile = document.getElementById('nav-mobile');
+            var navOpen = false;
+
+            function toggleNav(open) {
+                navOpen = typeof open === 'boolean' ? open : !navOpen;
+                hamburger.classList.toggle('nav-hamburger-open', navOpen);
+                overlay.classList.toggle('nav-overlay-visible', navOpen);
+                mobile.classList.toggle('nav-mobile-open', navOpen);
+                document.body.classList.toggle('body-locked', navOpen);
+            }
+
+            hamburger.addEventListener('click', function() { toggleNav(); });
+            overlay.addEventListener('click', function() { toggleNav(false); });
+            document.querySelectorAll('[data-mobile-link]').forEach(function(link) {
+                link.addEventListener('click', function() { toggleNav(false); });
+            });
+
+            /* ---- Navbar scroll ---- */
+            var navbar = document.getElementById('navbar');
+            window.addEventListener('scroll', function() {
+                navbar.classList.toggle('nav-scrolled', window.scrollY > 20);
+            }, { passive: true });
+
+            /* ---- Active section indicator ---- */
+            var navLinks = document.querySelectorAll('[data-nav]');
+            var sections = [];
+            navLinks.forEach(function(link) {
+                var id = link.getAttribute('href').slice(1);
+                var el = document.getElementById(id);
+                if (el) sections.push({ id: id, el: el, link: link });
+            });
+
+            var sectionObserver = new IntersectionObserver(function(entries) {
+                entries.forEach(function(entry) {
+                    if (entry.isIntersecting) {
+                        navLinks.forEach(function(l) { l.classList.remove('nav-link-active'); });
+                        sections.forEach(function(s) {
+                            if (s.el === entry.target) s.link.classList.add('nav-link-active');
+                        });
+                    }
+                });
+            }, { threshold: 0.2, rootMargin: '-64px 0px -40% 0px' });
+
+            sections.forEach(function(s) { sectionObserver.observe(s.el); });
+
+            /* ---- Scroll reveal ---- */
+            var prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            var revealEls = document.querySelectorAll('.reveal');
+
+            if (prefersReduced) {
+                revealEls.forEach(function(el) { el.classList.add('reveal-visible'); });
+            } else {
+                var revealObserver = new IntersectionObserver(function(entries) {
+                    entries.forEach(function(entry) {
+                        if (entry.isIntersecting) {
+                            entry.target.classList.add('reveal-visible');
+                            revealObserver.unobserve(entry.target);
+                        }
+                    });
+                }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+                revealEls.forEach(function(el) { revealObserver.observe(el); });
+            }
+
+            /* ---- Counter animation ---- */
+            var counters = document.querySelectorAll('[data-count]');
+            var counterObserver = new IntersectionObserver(function(entries) {
+                entries.forEach(function(entry) {
+                    if (!entry.isIntersecting) return;
+                    var el = entry.target;
+                    var target = parseInt(el.getAttribute('data-count'), 10);
+                    var start = 0;
+                    var duration = 1200;
+                    var startTime = null;
+
+                    function step(ts) {
+                        if (!startTime) startTime = ts;
+                        var progress = Math.min((ts - startTime) / duration, 1);
+                        var ease = 1 - Math.pow(1 - progress, 3);
+                        el.textContent = Math.round(start + (target - start) * ease);
+                        if (progress < 1) requestAnimationFrame(step);
+                    }
+
+                    if (prefersReduced) {
+                        el.textContent = target;
+                    } else {
+                        requestAnimationFrame(step);
+                    }
+                    counterObserver.unobserve(el);
+                });
+            }, { threshold: 0.5 });
+
+            counters.forEach(function(c) { counterObserver.observe(c); });
+
+            /* ---- Tabs ---- */
+            document.querySelectorAll('.tabs-bar').forEach(function(bar) {
+                var btns = bar.querySelectorAll('.tab-btn');
+                btns.forEach(function(btn) {
+                    btn.addEventListener('click', function() {
+                        var tabId = btn.getAttribute('data-tab');
+                        btns.forEach(function(b) { b.classList.remove('tab-btn-active'); });
+                        btn.classList.add('tab-btn-active');
+
+                        var parent = bar.parentElement;
+                        parent.querySelectorAll('.tab-content').forEach(function(tc) {
+                            tc.classList.remove('tab-content-active');
+                        });
+                        var target = parent.querySelector('[data-tab-content="' + tabId + '"]');
+                        if (target) target.classList.add('tab-content-active');
+                    });
+                });
+            });
+
+            /* ---- Copy to clipboard ---- */
+            document.querySelectorAll('[data-copy]').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var text = btn.getAttribute('data-copy');
+                    navigator.clipboard.writeText(text).then(function() {
+                        showCopied(btn);
+                    });
+                });
+            });
+
+            document.querySelectorAll('[data-copy-code]').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var id = btn.getAttribute('data-copy-code');
+                    var block = document.getElementById(id);
+                    if (!block) return;
+                    var text = block.textContent;
+                    navigator.clipboard.writeText(text).then(function() {
+                        showCopied(btn);
+                    });
+                });
+            });
+
+            function showCopied(btn) {
+                btn.classList.add('copy-btn-copied');
+                setTimeout(function() {
+                    btn.classList.remove('copy-btn-copied');
+                }, 2000);
+            }
+
+            /* ---- Smooth scroll ---- */
+            document.querySelectorAll('a[href^="#"]').forEach(function(anchor) {
+                anchor.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    var target = document.querySelector(this.getAttribute('href'));
+                    if (target) {
+                        target.scrollIntoView({ behavior: prefersReduced ? 'auto' : 'smooth', block: 'start' });
+                    }
+                });
+            });
+
+            /* ---- Back to top ---- */
+            document.getElementById('back-to-top').addEventListener('click', function() {
+                window.scrollTo({ top: 0, behavior: prefersReduced ? 'auto' : 'smooth' });
+            });
+        })();
+    </script>
+</body>
+</html>

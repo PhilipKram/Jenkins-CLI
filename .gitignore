@@ -1,0 +1,4 @@
+jenkins-cli
+*.exe
+dist/
+.auto-claude/
