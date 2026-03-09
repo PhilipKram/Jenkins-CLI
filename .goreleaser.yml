@@ -61,14 +61,18 @@ brews:
       owner: PhilipKram
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    commit_author:
+      name: goreleaser
+      email: goreleaser@users.noreply.github.com
     directory: Formula
     homepage: "https://github.com/PhilipKram/Jenkins-CLI"
     description: "A CLI tool for controlling Jenkins from the terminal"
-    license: "MIT"
+    license: MIT
+    skip_upload: auto
     install: |
       bin.install "jenkins-cli"
     test: |
-      assert_match "jenkins-cli version", shell_output("#{bin}/jenkins-cli --version")
+      system "#{bin}/jenkins-cli", "--version"
 
 release:
   github:

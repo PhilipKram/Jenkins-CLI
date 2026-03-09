@@ -26,6 +26,19 @@ jobs:
       - name: Run tests
         run: go test ./...
 
+      - name: Ensure homebrew-tap repo exists
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "HOMEBREW_TAP_TOKEN not set, skipping homebrew-tap repo check"
+            exit 0
+          fi
+          if ! gh repo view PhilipKram/homebrew-tap >/dev/null 2>&1; then
+            gh repo create PhilipKram/homebrew-tap --public \
+              --description "Homebrew formulae for PhilipKram projects"
+          fi
+
       - name: Determine goreleaser args
         id: goreleaser
         env:
@@ -38,11 +51,8 @@ jobs:
             echo "args=release --clean" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v6
+      - uses: goreleaser/goreleaser-action@v6
         with:
-          distribution: goreleaser
-          version: "~> v2"
           args: ${{ steps.goreleaser.outputs.args }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
