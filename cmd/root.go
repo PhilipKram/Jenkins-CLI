@@ -17,6 +17,7 @@ import (
 	"github.com/PhilipKram/jenkins-cli/cmd/credentials"
 	"github.com/PhilipKram/jenkins-cli/cmd/jobs"
 	mcpcmd "github.com/PhilipKram/jenkins-cli/cmd/mcp"
+	"github.com/PhilipKram/jenkins-cli/cmd/multibranch"
 	"github.com/PhilipKram/jenkins-cli/cmd/nodes"
 	"github.com/PhilipKram/jenkins-cli/cmd/open"
 	"github.com/PhilipKram/jenkins-cli/cmd/pipeline"
@@ -120,5 +121,6 @@ func init() {
 	rootCmd.AddCommand(open.Cmd)
 	rootCmd.AddCommand(upgrade.Cmd)
 	rootCmd.AddCommand(view.Cmd)
+	rootCmd.AddCommand(multibranch.Cmd)
 	rootCmd.AddCommand(mcpcmd.NewCmdMCP())
 }

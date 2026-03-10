@@ -234,5 +234,9 @@ func RegisterDefaultTools(registry *ToolRegistry) error {
 	if err := registerSystemTools(registry); err != nil {
 		return err
 	}
+	// Multibranch Tools
+	if err := registerMultibranchTools(registry); err != nil {
+		return err
+	}
 	return nil
 }

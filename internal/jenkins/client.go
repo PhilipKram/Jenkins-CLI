@@ -84,7 +84,7 @@ func NewClientWithAuth(baseURL string, auth AuthMethod, insecure bool, timeout t
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: insecure},
 	}
 	return &Client{
-		BaseURL:    strings.TrimRight(baseURL, "/"),
+		BaseURL:    stripJobPath(strings.TrimRight(baseURL, "/")),
 		Auth:       auth,
 		MaxRetries: maxRetries,
 		Timeout:    timeout,
@@ -92,6 +92,17 @@ func NewClientWithAuth(baseURL string, auth AuthMethod, insecure bool, timeout t
 			Transport: transport,
 		},
 	}
+}
+
+// stripJobPath removes any /job/... suffix from a Jenkins URL so that the
+// BaseURL always points to the Jenkins root. Users sometimes configure a
+// job-specific URL (e.g. copied from a browser), but all API methods already
+// prepend /job/ when constructing paths.
+func stripJobPath(u string) string {
+	if idx := strings.Index(u, "/job/"); idx != -1 {
+		return u[:idx]
+	}
+	return u
 }
 
 func (c *Client) buildURL(path string) string {

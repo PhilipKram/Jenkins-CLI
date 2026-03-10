@@ -81,6 +81,35 @@ func TestNewClientTrimsTrailingSlash(t *testing.T) {
 	}
 }
 
+func TestStripJobPath(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"http://localhost:8080", "http://localhost:8080"},
+		{"http://localhost:8080/jenkins", "http://localhost:8080/jenkins"},
+		{"http://localhost:8080/job/myproject", "http://localhost:8080"},
+		{"http://localhost:8080/ssbu-01/job/allot_secure_team_multiproject", "http://localhost:8080/ssbu-01"},
+		{"https://jenkins.example.com/prefix/job/folder/job/pipeline", "https://jenkins.example.com/prefix"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got := stripJobPath(tt.input)
+			if got != tt.want {
+				t.Errorf("stripJobPath(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNewClientStripsJobPath(t *testing.T) {
+	c := NewClient("https://jenkins.example.com/ssbu-01/job/myproject/", "admin", "token", false, 30*time.Second, 3)
+	want := "https://jenkins.example.com/ssbu-01"
+	if c.BaseURL != want {
+		t.Errorf("expected BaseURL %s, got %s", want, c.BaseURL)
+	}
+}
+
 func TestGetJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/json" {
