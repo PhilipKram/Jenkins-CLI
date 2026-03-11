@@ -101,6 +101,53 @@ This command validates:
 
 Useful for troubleshooting connection issues before running automation.
 
+### Multiple Jenkins Servers (Profiles)
+
+Manage multiple Jenkins servers with named profiles, each with its own URL and credentials:
+
+```bash
+# Create profiles for different Jenkins servers
+jenkins-cli configure --profile images --url https://jenkins.example.com/ssbu-01
+jenkins-cli configure --profile helm --url https://jenkins.example.com/allotsecure-01/
+jenkins-cli configure --profile hotfix --url https://jenkins.example.com/allotsecure-01/job/Lock_and_Release_Hotfix_Image/
+
+# Use a profile for a single command
+jenkins-cli --profile images jobs list
+jenkins-cli -p helm builds list my-pipeline
+
+# Set the active profile (used when --profile is not specified)
+jenkins-cli profile use images
+
+# List all configured profiles
+jenkins-cli profile list
+
+# Show profile details
+jenkins-cli profile show images
+
+# Delete a profile
+jenkins-cli profile delete old-server
+```
+
+Profile resolution order:
+1. `--profile` / `-p` flag
+2. `JENKINS_PROFILE` environment variable
+3. `current_profile` setting in config file
+4. `"default"` profile
+
+Existing single-server configs are automatically migrated to a `"default"` profile.
+
+#### Multiple MCP Servers
+
+Register separate MCP server instances for each Jenkins profile:
+
+```bash
+jenkins-cli mcp install --profile images --name jenkins-images
+jenkins-cli mcp install --profile helm --name jenkins-helm
+jenkins-cli mcp install --profile hotfix --name jenkins-hotfix
+```
+
+Each MCP server instance uses the `JENKINS_PROFILE` environment variable to select its profile.
+
 ### Environment Variables
 
 Override config file settings with environment variables:
@@ -111,6 +158,7 @@ export JENKINS_USER=admin
 export JENKINS_TOKEN=your-api-token
 export JENKINS_BEARER_TOKEN=your-bearer-token  # overrides auth type to bearer
 export JENKINS_INSECURE=true                   # skip TLS verification
+export JENKINS_PROFILE=images                  # select a profile
 ```
 
 Configuration is stored in `~/.jenkins-cli/config.json` with `0600` permissions.
@@ -325,9 +373,10 @@ jenkins-cli builds list my-pipeline --json | jq '.[0]'
 ### Global Flags
 
 ```
---json        Output in JSON format
---timeout     Request timeout (default: 30s)
---retries     Maximum number of retries (default: 3)
+-p, --profile   Configuration profile to use
+    --json      Output in JSON format
+    --timeout   Request timeout (default: 30s)
+    --retries   Maximum number of retries (default: 3)
 ```
 
 ## Shell Completion
@@ -352,6 +401,7 @@ jenkins-cli completion fish > ~/.config/fish/completions/jenkins-cli.fish
 │   ├── helpers.go              # Shared CLI helpers
 │   ├── auth/                   # Auth commands (login, token, status, logout, refresh)
 │   ├── configure/              # Configure & connection test commands
+│   ├── profile/                # Profile management commands (list, use, show, delete)
 │   ├── jobs/                   # Jobs commands
 │   ├── builds/                 # Builds commands (log, watch, artifacts, kill)
 │   ├── pipeline/               # Pipeline commands (replay)

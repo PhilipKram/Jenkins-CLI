@@ -22,10 +22,12 @@ import (
 	"github.com/PhilipKram/jenkins-cli/cmd/open"
 	"github.com/PhilipKram/jenkins-cli/cmd/pipeline"
 	"github.com/PhilipKram/jenkins-cli/cmd/plugins"
+	"github.com/PhilipKram/jenkins-cli/cmd/profile"
 	"github.com/PhilipKram/jenkins-cli/cmd/queue"
 	"github.com/PhilipKram/jenkins-cli/cmd/system"
 	"github.com/PhilipKram/jenkins-cli/cmd/upgrade"
 	"github.com/PhilipKram/jenkins-cli/cmd/view"
+	"github.com/PhilipKram/jenkins-cli/internal/config"
 	"github.com/PhilipKram/jenkins-cli/internal/buildwatch"
 	"github.com/PhilipKram/jenkins-cli/internal/output"
 	"github.com/PhilipKram/jenkins-cli/internal/update"
@@ -43,6 +45,11 @@ Manage jobs, builds, nodes, queue, plugins, and more directly from your terminal
 Configure your Jenkins connection with 'jenkins-cli configure' to get started.`,
 	SilenceErrors: true, // We handle errors in Execute()
 	SilenceUsage:  true, // Don't show usage on errors
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		if p, _ := cmd.Root().Flags().GetString("profile"); p != "" {
+			config.ActiveProfile = p
+		}
+	},
 }
 
 func Execute() {
@@ -102,7 +109,8 @@ func Execute() {
 }
 
 func init() {
-	// Add global --json flag for structured output
+	// Add global flags
+	rootCmd.PersistentFlags().StringP("profile", "p", "", "Configuration profile to use (default: current profile)")
 	rootCmd.PersistentFlags().Bool("json", false, "Output in JSON format")
 	rootCmd.PersistentFlags().Duration("timeout", 30*time.Second, "Request timeout duration")
 	rootCmd.PersistentFlags().Int("retries", 3, "Maximum number of retries (0 to disable)")
@@ -123,4 +131,5 @@ func init() {
 	rootCmd.AddCommand(view.Cmd)
 	rootCmd.AddCommand(multibranch.Cmd)
 	rootCmd.AddCommand(mcpcmd.NewCmdMCP())
+	rootCmd.AddCommand(profile.Cmd)
 }

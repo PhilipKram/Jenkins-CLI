@@ -64,6 +64,8 @@ The server communicates via JSON-RPC 2.0 over stdin/stdout.`,
 func newCmdInstall() *cobra.Command {
 	var scope string
 	var client string
+	var profileName string
+	var serverName string
 
 	cmd := &cobra.Command{
 		Use:   "install",
@@ -77,14 +79,20 @@ Supported clients:
 Supported scopes (claude-code only):
   user    - User-level configuration (default)
   local   - Local project configuration
-  project - Project-level configuration`,
+  project - Project-level configuration
+
+To register multiple Jenkins servers, use --profile and --name:
+  jenkins-cli mcp install --profile images --name jenkins-images
+  jenkins-cli mcp install --profile helm --name jenkins-helm`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runInstall(client, scope)
+			return runInstall(client, scope, profileName, serverName)
 		},
 	}
 
 	cmd.Flags().StringVar(&scope, "scope", "user", "Configuration scope: user, local, or project (claude-code only)")
 	cmd.Flags().StringVar(&client, "client", "claude-code", "AI client: claude-code or claude-desktop")
+	cmd.Flags().StringVar(&profileName, "profile", "", "Jenkins CLI profile to use for this MCP server")
+	cmd.Flags().StringVar(&serverName, "name", "jenkins-cli", "MCP server name (useful when registering multiple profiles)")
 
 	return cmd
 }
@@ -140,10 +148,15 @@ func binaryPath() string {
 	return resolved
 }
 
-func mcpConfigJSON(binPath string) (string, error) {
+func mcpConfigJSON(binPath string, profileName string) (string, error) {
 	config := map[string]interface{}{
 		"command": binPath,
 		"args":    []string{"mcp", "serve"},
+	}
+	if profileName != "" {
+		config["env"] = map[string]string{
+			"JENKINS_PROFILE": profileName,
+		}
 	}
 	data, err := json.Marshal(config)
 	if err != nil {
@@ -185,43 +198,47 @@ func findClaude() (string, error) {
 	return path, nil
 }
 
-func runInstall(client, scope string) error {
+func runInstall(client, scope, profileName, serverName string) error {
 	switch client {
 	case "claude-code":
-		return installClaudeCode(scope)
+		return installClaudeCode(scope, profileName, serverName)
 	case "claude-desktop":
-		return installClaudeDesktop()
+		return installClaudeDesktop(profileName, serverName)
 	default:
 		return fmt.Errorf("unsupported client: %s (supported: claude-code, claude-desktop)", client)
 	}
 }
 
-func installClaudeCode(scope string) error {
+func installClaudeCode(scope, profileName, serverName string) error {
 	claudePath, err := findClaude()
 	if err != nil {
 		return err
 	}
 
 	binPath := binaryPath()
-	configJSON, err := mcpConfigJSON(binPath)
+	configJSON, err := mcpConfigJSON(binPath, profileName)
 	if err != nil {
 		return err
 	}
 
 	//nolint:gosec // Arguments are constructed from trusted sources
-	cmd := exec.Command(claudePath, "mcp", "add-json", "--scope", scope, "jenkins-cli", configJSON)
+	cmd := exec.Command(claudePath, "mcp", "add-json", "--scope", scope, serverName, configJSON)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to register jenkins-cli in Claude Code: %w", err)
+		return fmt.Errorf("failed to register %s in Claude Code: %w", serverName, err)
 	}
 
-	fmt.Fprintf(os.Stderr, "Successfully registered jenkins-cli as an MCP server in Claude Code (scope: %s)\n", scope)
+	msg := fmt.Sprintf("Successfully registered %s as an MCP server in Claude Code (scope: %s)", serverName, scope)
+	if profileName != "" {
+		msg += fmt.Sprintf(" using profile %q", profileName)
+	}
+	fmt.Fprintln(os.Stderr, msg)
 	return nil
 }
 
-func installClaudeDesktop() error {
+func installClaudeDesktop(profileName, serverName string) error {
 	configPath, err := claudeDesktopConfigPath()
 	if err != nil {
 		return err
@@ -247,10 +264,17 @@ func installClaudeDesktop() error {
 		mcpServers = make(map[string]interface{})
 	}
 
-	mcpServers["jenkins-cli"] = map[string]interface{}{
+	serverCfg := map[string]interface{}{
 		"command": binPath,
 		"args":    []string{"mcp", "serve"},
 	}
+	if profileName != "" {
+		serverCfg["env"] = map[string]string{
+			"JENKINS_PROFILE": profileName,
+		}
+	}
+
+	mcpServers[serverName] = serverCfg
 	config["mcpServers"] = mcpServers
 
 	output, err := json.MarshalIndent(config, "", "  ")
@@ -266,7 +290,11 @@ func installClaudeDesktop() error {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 
-	fmt.Fprintf(os.Stderr, "Successfully registered jenkins-cli as an MCP server in Claude Desktop\n")
+	msg := fmt.Sprintf("Successfully registered %s as an MCP server in Claude Desktop", serverName)
+	if profileName != "" {
+		msg += fmt.Sprintf(" using profile %q", profileName)
+	}
+	fmt.Fprintln(os.Stderr, msg)
 	fmt.Fprintf(os.Stderr, "Config file: %s\n", configPath)
 	return nil
 }
