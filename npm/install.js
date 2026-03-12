@@ -39,20 +39,27 @@ function getVersion() {
   return pkg.version;
 }
 
-function httpsGet(url) {
+function httpsDownload(url, destPath) {
   return new Promise((resolve, reject) => {
     https
       .get(url, { headers: { "User-Agent": "jenkins-cli-mcp-npm" } }, (res) => {
         if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-          return httpsGet(res.headers.location).then(resolve, reject);
+          return httpsDownload(res.headers.location, destPath).then(resolve, reject);
         }
         if (res.statusCode !== 200) {
           return reject(new Error(`HTTP ${res.statusCode} for ${url}`));
         }
-        const chunks = [];
-        res.on("data", (chunk) => chunks.push(chunk));
-        res.on("end", () => resolve(Buffer.concat(chunks)));
-        res.on("error", reject);
+        const file = fs.createWriteStream(destPath);
+        res.pipe(file);
+        file.on("finish", () => file.close(resolve));
+        file.on("error", (err) => {
+          fs.unlinkSync(destPath);
+          reject(err);
+        });
+        res.on("error", (err) => {
+          fs.unlinkSync(destPath);
+          reject(err);
+        });
       })
       .on("error", reject);
   });
@@ -74,15 +81,13 @@ async function main() {
   console.log(`Downloading jenkins-cli v${version} for ${goos}/${goarch}...`);
   console.log(`  ${url}`);
 
-  const data = await httpsGet(url);
-
   // Ensure bin directory exists
   fs.mkdirSync(BIN_DIR, { recursive: true });
 
-  // Extract binary from archive
+  // Stream download directly to file instead of buffering in memory
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "jenkins-cli-"));
   const archivePath = path.join(tmpDir, archive);
-  fs.writeFileSync(archivePath, data);
+  await httpsDownload(url, archivePath);
 
   try {
     if (ext === "tar.gz") {

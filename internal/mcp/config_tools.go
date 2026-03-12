@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/PhilipKram/jenkins-cli/internal/clientutil"
@@ -88,12 +89,15 @@ func configStatusHandler(ctx context.Context, args map[string]interface{}) ([]Co
 		return marshalResult(result)
 	}
 
-	ver, err := client.GetVersion(ctx)
-	if err != nil {
+	// TestConnection validates HTTP status (catches 401/403), unlike GetVersion
+	if err := client.TestConnection(ctx); err != nil {
 		result["connected"] = false
 		result["connection_error"] = err.Error()
-	} else {
-		result["connected"] = true
+		return marshalResult(result)
+	}
+
+	result["connected"] = true
+	if ver, err := client.GetVersion(ctx); err == nil {
 		result["jenkins_version"] = ver
 	}
 
@@ -107,7 +111,7 @@ func newConfigSetTool() Tool {
 		Name:  "config_set",
 		Title: "Configure Profile",
 		Description: "Create or update a Jenkins CLI profile with connection details. " +
-			"Supports basic auth (user+token), bearer token, and OAuth. " +
+			"Supports basic auth (user+token) and bearer token. " +
 			"Use this to set up Jenkins connectivity for the first time or to add additional server profiles.",
 		InputSchema: NewJSONSchema("object", map[string]interface{}{
 			"profile":      NewStringProperty("Profile name (default: 'default'). Use different names to manage multiple Jenkins servers."),
@@ -130,6 +134,9 @@ func configSetHandler(ctx context.Context, args map[string]interface{}) ([]Conte
 	if url == "" {
 		return nil, fmt.Errorf("url is required")
 	}
+
+	// Normalize URL: trim trailing slash to match CLI configure behavior
+	url = strings.TrimRight(url, "/")
 
 	cfg := config.Config{
 		URL: url,
@@ -174,12 +181,15 @@ func configSetHandler(ctx context.Context, args map[string]interface{}) ([]Conte
 		return marshalResult(result)
 	}
 
-	ver, err := client.GetVersion(ctx)
-	if err != nil {
+	// TestConnection validates HTTP status (catches 401/403), unlike GetVersion
+	if err := client.TestConnection(ctx); err != nil {
 		result["connected"] = false
 		result["connection_error"] = err.Error()
-	} else {
-		result["connected"] = true
+		return marshalResult(result)
+	}
+
+	result["connected"] = true
+	if ver, err := client.GetVersion(ctx); err == nil {
 		result["jenkins_version"] = ver
 	}
 

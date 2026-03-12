@@ -35,21 +35,26 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
 }
 ```
 
-## Prerequisites
+## Configuration
 
-Configure jenkins-cli before first use:
+No manual setup required. On first use, the AI assistant will automatically detect that Jenkins is not configured and use the built-in `config_set` MCP tool to set up your connection interactively.
 
-```bash
-npx @philipkram/jenkins-cli-mcp  # downloads the binary automatically
-jenkins-cli configure        # set up your Jenkins connection
-```
+Alternatively, set environment variables in the MCP config:
 
-Or set environment variables:
-
-```bash
-export JENKINS_URL=https://jenkins.example.com
-export JENKINS_USER=admin
-export JENKINS_TOKEN=your-api-token
+```json
+{
+  "mcpServers": {
+    "jenkins-cli": {
+      "command": "npx",
+      "args": ["-y", "@philipkram/jenkins-cli-mcp"],
+      "env": {
+        "JENKINS_URL": "https://jenkins.example.com",
+        "JENKINS_USER": "admin",
+        "JENKINS_TOKEN": "your-api-token"
+      }
+    }
+  }
+}
 ```
 
 ## Available Tools
