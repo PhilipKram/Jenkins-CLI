@@ -87,8 +87,9 @@ func getStagePrefix(index int, groups []parallelGroup) string {
 }
 
 var stagesCmd = &cobra.Command{
-	Use:   "stages [job-name] [build-number]",
-	Short: "Show pipeline stages for a build",
+	Use:     "stages [job-name] [build-number]",
+	Aliases: []string{"status"},
+	Short:   "Show pipeline stages for a build",
 	Example: `  jenkins-cli pipeline stages my-pipeline 42
   jenkins-cli pipeline stages my-pipeline
   jenkins-cli pipeline stages --job my-pipeline 42

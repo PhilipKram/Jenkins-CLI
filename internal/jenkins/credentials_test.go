@@ -78,6 +78,44 @@ func TestListCredentialsCustomDomain(t *testing.T) {
 	}
 }
 
+// TestListCredentialsManageFallback verifies that credentials list falls back
+// to /manage/ prefix when the standard path returns 404 (newer Jenkins).
+func TestListCredentialsManageFallback(t *testing.T) {
+	manageCalled := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/credentials/store/system/domain/_/api/json":
+			// Simulate newer Jenkins: standard path returns 404
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte("not found"))
+		case "/manage/credentials/store/system/domain/_/api/json":
+			// /manage/ prefix works
+			manageCalled = true
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(credentialListResponse{
+				Credentials: []Credential{
+					{ID: "manage-cred", Type: "Secret text", DisplayName: "From Manage"},
+				},
+			})
+		default:
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	c := NewClient(server.URL, "admin", "token", false, 30*time.Second, 3)
+	creds, err := c.ListCredentials(context.Background(), "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !manageCalled {
+		t.Error("expected fallback to /manage/ prefix path")
+	}
+	if len(creds) != 1 || creds[0].ID != "manage-cred" {
+		t.Errorf("unexpected credentials: %v", creds)
+	}
+}
+
 func TestGetCredential(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		expectedPath := "/credentials/store/system/domain/_/credential/my-cred/api/json"
@@ -363,7 +401,8 @@ func TestDeleteCredentialNotFound(t *testing.T) {
 		switch r.URL.Path {
 		case "/crumbIssuer/api/json":
 			w.WriteHeader(http.StatusNotFound)
-		case "/credentials/store/system/domain/_/credential/nonexistent/doDelete":
+		case "/credentials/store/system/domain/_/credential/nonexistent/doDelete",
+			"/manage/credentials/store/system/domain/_/credential/nonexistent/doDelete":
 			w.WriteHeader(http.StatusNotFound)
 			w.Write([]byte("not found"))
 		default:

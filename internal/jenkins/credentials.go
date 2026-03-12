@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+
+	jenkinserrors "github.com/PhilipKram/jenkins-cli/internal/errors"
 )
 
 // Credential represents basic credential information from Jenkins
@@ -47,6 +49,15 @@ type credentialListResponse struct {
 	Credentials []Credential `json:"credentials"`
 }
 
+// credentialStorePaths returns the paths to try for the credential store, in order.
+// Newer Jenkins versions (2.�+) require the /manage/ prefix.
+func credentialStorePaths(suffix string) []string {
+	return []string{
+		"/credentials/store/system/" + suffix,
+		"/manage/credentials/store/system/" + suffix,
+	}
+}
+
 // ListCredentials lists all credentials in the specified domain.
 // If domain is empty, "_" (global domain) is used.
 func (c *Client) ListCredentials(ctx context.Context, domain string) ([]Credential, error) {
@@ -54,13 +65,20 @@ func (c *Client) ListCredentials(ctx context.Context, domain string) ([]Credenti
 		domain = "_"
 	}
 
-	path := fmt.Sprintf("/credentials/store/system/domain/%s/api/json?tree=credentials[id,typeName,displayName,description,fingerprint]", url.PathEscape(domain))
+	suffix := fmt.Sprintf("domain/%s/api/json?tree=credentials[id,typeName,displayName,description,fingerprint]", url.PathEscape(domain))
 
 	var resp credentialListResponse
-	if err := c.get(ctx, path, &resp); err != nil {
-		return nil, fmt.Errorf("listing credentials: %w", err)
+	var lastErr error
+	for _, path := range credentialStorePaths(suffix) {
+		lastErr = c.get(ctx, path, &resp)
+		if lastErr == nil {
+			return resp.Credentials, nil
+		}
+		if !jenkinserrors.IsNotFound(lastErr) {
+			return nil, fmt.Errorf("listing credentials: %w", lastErr)
+		}
 	}
-	return resp.Credentials, nil
+	return nil, fmt.Errorf("listing credentials: %w", lastErr)
 }
 
 // GetCredential retrieves detailed information about a specific credential.
@@ -70,15 +88,22 @@ func (c *Client) GetCredential(ctx context.Context, id, domain string) (*Credent
 		domain = "_"
 	}
 
-	path := fmt.Sprintf("/credentials/store/system/domain/%s/credential/%s/api/json",
+	suffix := fmt.Sprintf("domain/%s/credential/%s/api/json",
 		url.PathEscape(domain), url.PathEscape(id))
 
 	var cred CredentialDetail
-	if err := c.get(ctx, path, &cred); err != nil {
-		return nil, c.wrapNotFoundError(err, id)
+	var lastErr error
+	for _, path := range credentialStorePaths(suffix) {
+		lastErr = c.get(ctx, path, &cred)
+		if lastErr == nil {
+			cred.Domain = domain
+			return &cred, nil
+		}
+		if !jenkinserrors.IsNotFound(lastErr) {
+			return nil, c.wrapNotFoundError(lastErr, id)
+		}
 	}
-	cred.Domain = domain
-	return &cred, nil
+	return nil, c.wrapNotFoundError(lastErr, id)
 }
 
 // CreateCredential creates a new credential in Jenkins.
@@ -123,14 +148,21 @@ func (c *Client) CreateCredential(ctx context.Context, credType, domain string, 
 		return fmt.Errorf("marshaling credential payload: %w", err)
 	}
 
-	path := fmt.Sprintf("/credentials/store/system/domain/%s/createCredentials", url.PathEscape(domain))
+	suffix := fmt.Sprintf("domain/%s/createCredentials", url.PathEscape(domain))
 
 	// Use postFormWithCrumb for credential creation as Jenkins expects form data
-	if err := c.postFormWithCrumb(ctx, path, bytes.NewReader(jsonData)); err != nil {
-		return fmt.Errorf("creating credential: %w", err)
+	// Try multiple credential store paths for compatibility with different Jenkins versions
+	var lastErr error
+	for _, path := range credentialStorePaths(suffix) {
+		lastErr = c.postFormWithCrumb(ctx, path, bytes.NewReader(jsonData))
+		if lastErr == nil {
+			return nil
+		}
+		if !jenkinserrors.IsNotFound(lastErr) {
+			return fmt.Errorf("creating credential: %w", lastErr)
+		}
 	}
-
-	return nil
+	return fmt.Errorf("creating credential: %w", lastErr)
 }
 
 // DeleteCredential removes a credential from Jenkins.
@@ -140,8 +172,18 @@ func (c *Client) DeleteCredential(ctx context.Context, id, domain string) error 
 		domain = "_"
 	}
 
-	path := fmt.Sprintf("/credentials/store/system/domain/%s/credential/%s/doDelete",
+	suffix := fmt.Sprintf("domain/%s/credential/%s/doDelete",
 		url.PathEscape(domain), url.PathEscape(id))
 
-	return c.wrapNotFoundError(c.postWithCrumb(ctx, path, nil), id)
+	var lastErr error
+	for _, path := range credentialStorePaths(suffix) {
+		lastErr = c.postWithCrumb(ctx, path, nil)
+		if lastErr == nil {
+			return nil
+		}
+		if !jenkinserrors.IsNotFound(lastErr) {
+			return c.wrapNotFoundError(lastErr, id)
+		}
+	}
+	return c.wrapNotFoundError(lastErr, id)
 }

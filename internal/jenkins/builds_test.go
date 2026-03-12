@@ -251,6 +251,10 @@ func TestReplayBuild(t *testing.T) {
 				},
 				NextBuildNumber: 10,
 			})
+		case "/job/my-job/5/replay/run":
+			// Simulate older Jenkins: /replay/run not found, fall back to /replay/rebuild
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte("Not found"))
 		case "/job/my-job/5/replay/rebuild":
 			replayCalled = true
 			if r.Method != "POST" {
@@ -289,6 +293,48 @@ func TestReplayBuild(t *testing.T) {
 	}
 }
 
+// TestReplayBuildNewEndpoint verifies that replay uses /replay/run on newer Jenkins
+// (where /replay/run succeeds on the first try without falling back).
+func TestReplayBuildNewEndpoint(t *testing.T) {
+	runCalled := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/crumbIssuer/api/json":
+			w.WriteHeader(http.StatusNotFound)
+		case "/job/my-job/api/json":
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(JobDetail{
+				Job: Job{
+					Name:     "my-job",
+					FullName: "my-job",
+				},
+				NextBuildNumber: 10,
+			})
+		case "/job/my-job/5/replay/run":
+			runCalled = true
+			if r.Method != "POST" {
+				t.Errorf("expected POST, got %s", r.Method)
+			}
+			w.WriteHeader(http.StatusOK)
+		default:
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	c := NewClient(server.URL, "admin", "token", false, 5*time.Second, 0)
+	newBuildNumber, err := c.ReplayBuild(context.Background(), "my-job", 5, "println 'test'")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if newBuildNumber != 10 {
+		t.Errorf("expected build number 10, got %d", newBuildNumber)
+	}
+	if !runCalled {
+		t.Error("expected POST to /job/my-job/5/replay/run (newer Jenkins endpoint)")
+	}
+}
+
 func TestReplayBuildWithoutScript(t *testing.T) {
 	replayCalled := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -304,6 +350,9 @@ func TestReplayBuildWithoutScript(t *testing.T) {
 				},
 				NextBuildNumber: 15,
 			})
+		case "/job/my-job/10/replay/run":
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte("Not found"))
 		case "/job/my-job/10/replay/rebuild":
 			replayCalled = true
 			body, _ := io.ReadAll(r.Body)
@@ -328,7 +377,7 @@ func TestReplayBuildWithoutScript(t *testing.T) {
 		t.Errorf("expected build number 15, got %d", newBuildNumber)
 	}
 	if !replayCalled {
-		t.Error("expected POST to /job/my-job/10/replay/rebuild")
+		t.Error("expected POST to replay endpoint")
 	}
 }
 
@@ -346,6 +395,9 @@ func TestReplayBuildInFolder(t *testing.T) {
 				},
 				NextBuildNumber: 20,
 			})
+		case "/job/my-folder/job/my-job/7/replay/run":
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte("Not found"))
 		case "/job/my-folder/job/my-job/7/replay/rebuild":
 			w.WriteHeader(http.StatusOK)
 		default:
@@ -402,6 +454,9 @@ func TestReplayBuildPostError(t *testing.T) {
 				},
 				NextBuildNumber: 10,
 			})
+		case "/job/my-job/5/replay/run":
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte("Not found"))
 		case "/job/my-job/5/replay/rebuild":
 			w.WriteHeader(http.StatusForbidden)
 			w.Write([]byte("permission denied"))
