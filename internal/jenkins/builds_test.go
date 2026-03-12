@@ -293,6 +293,48 @@ func TestReplayBuild(t *testing.T) {
 	}
 }
 
+// TestReplayBuildNewEndpoint verifies that replay uses /replay/run on newer Jenkins
+// (where /replay/run succeeds on the first try without falling back).
+func TestReplayBuildNewEndpoint(t *testing.T) {
+	runCalled := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/crumbIssuer/api/json":
+			w.WriteHeader(http.StatusNotFound)
+		case "/job/my-job/api/json":
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(JobDetail{
+				Job: Job{
+					Name:     "my-job",
+					FullName: "my-job",
+				},
+				NextBuildNumber: 10,
+			})
+		case "/job/my-job/5/replay/run":
+			runCalled = true
+			if r.Method != "POST" {
+				t.Errorf("expected POST, got %s", r.Method)
+			}
+			w.WriteHeader(http.StatusOK)
+		default:
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	c := NewClient(server.URL, "admin", "token", false, 5*time.Second, 0)
+	newBuildNumber, err := c.ReplayBuild(context.Background(), "my-job", 5, "println 'test'")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if newBuildNumber != 10 {
+		t.Errorf("expected build number 10, got %d", newBuildNumber)
+	}
+	if !runCalled {
+		t.Error("expected POST to /job/my-job/5/replay/run (newer Jenkins endpoint)")
+	}
+}
+
 func TestReplayBuildWithoutScript(t *testing.T) {
 	replayCalled := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
