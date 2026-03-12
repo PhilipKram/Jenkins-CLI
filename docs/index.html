@@ -649,6 +649,7 @@
                     <li><a href="#commands" class="nav-link" data-nav>Commands</a></li>
                     <li><a href="#examples" class="nav-link" data-nav>Examples</a></li>
                     <li><a href="#config" class="nav-link" data-nav>Config</a></li>
+                    <li><a href="#mcp" class="nav-link" data-nav>MCP</a></li>
                 </ul>
                 <a href="https://github.com/PhilipKram/Jenkins-CLI" class="nav-cta" target="_blank" rel="noopener">
                     <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
@@ -672,6 +673,7 @@
             <a href="#commands" class="nav-mobile-link" data-mobile-link>Commands</a>
             <a href="#examples" class="nav-mobile-link" data-mobile-link>Examples</a>
             <a href="#config" class="nav-mobile-link" data-mobile-link>Config</a>
+            <a href="#mcp" class="nav-mobile-link" data-mobile-link>MCP</a>
             <a href="https://github.com/PhilipKram/Jenkins-CLI" class="nav-mobile-cta" target="_blank" rel="noopener">
                 <svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
                 GitHub
@@ -820,6 +822,14 @@
                     <h3 class="feature-title">Views</h3>
                     <p class="feature-desc">Create and manage views to organize your Jenkins dashboard. Add or remove jobs from views.</p>
                     <span class="feature-code">jenkins-cli view create my-view</span>
+                </div>
+                <div class="glass-card gradient-border feature-card reveal" style="--reveal-delay: 10">
+                    <div class="feature-icon feature-icon-purple">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                    </div>
+                    <h3 class="feature-title">MCP Server</h3>
+                    <p class="feature-desc">Built-in MCP server lets AI assistants manage Jenkins directly. Zero-install via npx with auto-configuration.</p>
+                    <span class="feature-code">npx @philipkram/jenkins-cli-mcp</span>
                 </div>
             </div>
         </section>
@@ -1389,6 +1399,140 @@
             </div>
         </section>
 
+        <!-- ==================== MCP SERVER ==================== -->
+        <section class="section" id="mcp">
+            <div class="section-label reveal">AI Integration</div>
+            <h2 class="section-title reveal">MCP Server for AI Assistants</h2>
+            <p class="section-desc reveal">
+                Built-in <a href="https://modelcontextprotocol.io/" style="color: var(--accent);" target="_blank" rel="noopener">Model Context Protocol</a> server lets AI assistants like Claude manage your Jenkins servers directly. Zero-install via npx.
+            </p>
+
+            <div class="code-block reveal" style="margin-bottom: var(--sp-8);">
+                <div class="code-header">
+                    <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+                    <div class="code-header-right">
+                        <span class="code-filename">Quick Start (npx)</span>
+                        <button class="copy-btn" data-copy-code="mcp-npx-code" title="Copy code">
+                            <svg class="icon-clipboard" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                            <svg class="icon-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                            <span class="copy-tooltip">Copied!</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="code-content" id="mcp-npx-code">
+<pre><span class="cm">// Add to your MCP client configuration (Claude Code, Claude Desktop, etc.)</span>
+{
+  <span class="str">"mcpServers"</span>: {
+    <span class="str">"jenkins-cli"</span>: {
+      <span class="str">"command"</span>: <span class="str">"npx"</span>,
+      <span class="str">"args"</span>: [<span class="str">"-y"</span>, <span class="str">"@philipkram/jenkins-cli-mcp"</span>]
+    }
+  }
+}</pre>
+                </div>
+            </div>
+
+            <div class="code-block reveal" style="margin-bottom: var(--sp-8);">
+                <div class="code-header">
+                    <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+                    <div class="code-header-right">
+                        <span class="code-filename">Multiple Jenkins Servers</span>
+                        <button class="copy-btn" data-copy-code="mcp-multi-code" title="Copy code">
+                            <svg class="icon-clipboard" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                            <svg class="icon-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                            <span class="copy-tooltip">Copied!</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="code-content" id="mcp-multi-code">
+<pre>{
+  <span class="str">"mcpServers"</span>: {
+    <span class="str">"jenkins-images"</span>: {
+      <span class="str">"command"</span>: <span class="str">"npx"</span>,
+      <span class="str">"args"</span>: [<span class="str">"-y"</span>, <span class="str">"@philipkram/jenkins-cli-mcp"</span>],
+      <span class="str">"env"</span>: { <span class="str">"JENKINS_PROFILE"</span>: <span class="str">"images"</span> }
+    },
+    <span class="str">"jenkins-helm"</span>: {
+      <span class="str">"command"</span>: <span class="str">"npx"</span>,
+      <span class="str">"args"</span>: [<span class="str">"-y"</span>, <span class="str">"@philipkram/jenkins-cli-mcp"</span>],
+      <span class="str">"env"</span>: { <span class="str">"JENKINS_PROFILE"</span>: <span class="str">"helm"</span> }
+    }
+  }
+}</pre>
+                </div>
+            </div>
+
+            <div class="glass-card config-card reveal">
+                <h3 class="config-title">Available MCP Tools</h3>
+                <table class="config-table">
+                    <thead><tr><th>Category</th><th>Tools</th></tr></thead>
+                    <tbody>
+                        <tr><td>Jobs</td><td>job_list, job_view, job_build, job_enable, job_disable</td></tr>
+                        <tr><td>Builds</td><td>build_list, build_view, build_log, build_last, build_stop, build_artifacts</td></tr>
+                        <tr><td>Pipeline</td><td>pipeline_validate, pipeline_stages, pipeline_stage_log</td></tr>
+                        <tr><td>Nodes</td><td>node_list, node_view</td></tr>
+                        <tr><td>Queue</td><td>queue_list, queue_cancel</td></tr>
+                        <tr><td>Credentials</td><td>credential_list, credential_view</td></tr>
+                        <tr><td>Views</td><td>view_list</td></tr>
+                        <tr><td>System</td><td>system_info</td></tr>
+                        <tr><td>Multibranch</td><td>multibranch_branches, multibranch_scan, multibranch_scan_log</td></tr>
+                        <tr><td>Config</td><td>config_status, config_set, profile_list, profile_switch, profile_delete</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); margin-top: var(--sp-4);" class="reveal">
+                <div class="glass-card config-card">
+                    <h3 class="config-title">MCP Resources</h3>
+                    <table class="config-table">
+                        <thead><tr><th>Resource</th><th>URI Pattern</th></tr></thead>
+                        <tbody>
+                            <tr><td>Build Log</td><td>jenkins:///{job}/{number}/log</td></tr>
+                            <tr><td>Job Config</td><td>jenkins:///{job}/config.xml</td></tr>
+                            <tr><td>System Log</td><td>jenkins:///system/log</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="glass-card config-card">
+                    <h3 class="config-title">MCP Prompts</h3>
+                    <table class="config-table">
+                        <thead><tr><th>Prompt</th><th>Description</th></tr></thead>
+                        <tbody>
+                            <tr><td>diagnose_build_failure</td><td>Analyze build logs for failure causes</td></tr>
+                            <tr><td>review_job_config</td><td>Review config against best practices</td></tr>
+                            <tr><td>summarize_build_history</td><td>Analyze build trends and health</td></tr>
+                            <tr><td>validate_jenkinsfile</td><td>Validate syntax and best practices</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="code-block reveal" style="margin-top: var(--sp-8);">
+                <div class="code-header">
+                    <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+                    <div class="code-header-right">
+                        <span class="code-filename">Install from Binary</span>
+                        <button class="copy-btn" data-copy-code="mcp-install-code" title="Copy code">
+                            <svg class="icon-clipboard" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                            <svg class="icon-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                            <span class="copy-tooltip">Copied!</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="code-content" id="mcp-install-code">
+<pre><span class="cm"># Register with Claude Code</span>
+<span class="cmd">jenkins-cli mcp install</span>
+
+<span class="cm"># Register with Claude Desktop</span>
+<span class="cmd">jenkins-cli mcp install --client claude-desktop</span>
+
+<span class="cm"># Register per profile</span>
+<span class="cmd">jenkins-cli mcp install --profile images --name jenkins-images</span>
+<span class="cmd">jenkins-cli mcp install --profile helm --name jenkins-helm</span></pre>
+                </div>
+            </div>
+        </section>
+
         <!-- ==================== FOOTER ==================== -->
         <footer class="footer">
             <div class="footer-inner">
@@ -1419,6 +1563,7 @@
                         <a href="#install" class="footer-link">Install</a>
                         <a href="#commands" class="footer-link">Commands</a>
                         <a href="#examples" class="footer-link">Examples</a>
+                        <a href="#mcp" class="footer-link">MCP</a>
                     </div>
                 </div>
             </div>

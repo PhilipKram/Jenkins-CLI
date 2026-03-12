@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Go CLI tool for managing Jenkins servers. Built with Cobra framework, supports multiple auth methods (Basic, Bearer, OAuth2+PKCE). Features include real-time build log streaming, build watching with desktop notifications, artifact download, pipeline replay, credential management, view management, and self-upgrade.
+Go CLI tool for managing Jenkins servers. Built with Cobra framework, supports multiple auth methods (Basic, Bearer, OAuth2+PKCE). Features include real-time build log streaming, build watching with desktop notifications, artifact download, pipeline replay, credential management, view management, self-upgrade, and a built-in MCP server for AI assistant integration (distributed via npm as `@philipkram/jenkins-cli-mcp`).
 
 ## Build & Test Commands
 
@@ -22,7 +22,7 @@ Version is injected at build time via `-ldflags "-X github.com/PhilipKram/jenkin
 
 **Entry point**: `main.go` → `cmd.Execute()`
 
-**`cmd/`** — Cobra command definitions, one subdirectory per resource group (auth, jobs, builds, nodes, queue, pipeline, plugins, system, credentials, view, upgrade, configure, profile, open). Each package registers subcommands and creates a Jenkins client via a local `newClient()` helper.
+**`cmd/`** — Cobra command definitions, one subdirectory per resource group (auth, jobs, builds, nodes, queue, pipeline, plugins, system, credentials, view, upgrade, configure, profile, open, mcp). Each package registers subcommands and creates a Jenkins client via a local `newClient()` helper.
 
 **`internal/jenkins/`** — Core API client (`Client` struct). Handles HTTP requests with CSRF crumb support, exponential backoff retries, and context-aware cancellation. Auth is pluggable via the `AuthMethod` interface (BasicAuth, BearerTokenAuth). Includes build log streaming (`stream.go`), pipeline stages (`stages.go`), views (`views.go`), and credentials (`credentials.go`).
 
@@ -42,6 +42,10 @@ Version is injected at build time via `-ldflags "-X github.com/PhilipKram/jenkin
 
 **`internal/update/`** — Version checking against GitHub releases, self-update for direct installations, Homebrew detection.
 
+**`internal/mcp/`** — MCP (Model Context Protocol) server exposing Jenkins operations as tools over JSON-RPC 2.0/stdio. Tool registry pattern with handlers for jobs, builds, pipelines, nodes, queue, credentials, views, system, multibranch, and config/profile management. Also provides resource templates (build logs, job config, system log) and prompt templates (diagnose failures, review config, etc.).
+
+**`npm/`** — npm package (`@philipkram/jenkins-cli-mcp`) for zero-install MCP distribution via `npx`. Postinstall script downloads the correct Go binary from GitHub Releases. Entry point runs `jenkins-cli mcp serve`.
+
 **`internal/version/`** — Version variable set at build time via ldflags.
 
 ## Conventions
@@ -53,6 +57,8 @@ Version is injected at build time via `-ldflags "-X github.com/PhilipKram/jenkin
 - Build number aliases supported: `last`, `lastSuccessful`
 - Build log streaming uses buffered I/O (32KB buffer) to reduce syscall overhead
 - URL validation on `open` command to prevent command injection
+- MCP tools follow the same registry pattern: `Tool` struct + `ToolHandler` func registered via `ToolRegistry.Register()`
+- MCP config tools (`config_tools.go`) temporarily override `config.ActiveProfile` and restore it via defer
 
 ## Release
 
