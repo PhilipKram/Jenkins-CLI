@@ -22,11 +22,11 @@ Version is injected at build time via `-ldflags "-X github.com/PhilipKram/jenkin
 
 **Entry point**: `main.go` → `cmd.Execute()`
 
-**`cmd/`** — Cobra command definitions, one subdirectory per resource group (auth, jobs, builds, nodes, queue, pipeline, plugins, system, credentials, view, upgrade, configure, open). Each package registers subcommands and creates a Jenkins client via a local `newClient()` helper.
+**`cmd/`** — Cobra command definitions, one subdirectory per resource group (auth, jobs, builds, nodes, queue, pipeline, plugins, system, credentials, view, upgrade, configure, profile, open). Each package registers subcommands and creates a Jenkins client via a local `newClient()` helper.
 
 **`internal/jenkins/`** — Core API client (`Client` struct). Handles HTTP requests with CSRF crumb support, exponential backoff retries, and context-aware cancellation. Auth is pluggable via the `AuthMethod` interface (BasicAuth, BearerTokenAuth). Includes build log streaming (`stream.go`), pipeline stages (`stages.go`), views (`views.go`), and credentials (`credentials.go`).
 
-**`internal/config/`** — Persists config to `~/.jenkins-cli/config.json` (0600 perms). Supports env var overrides: `JENKINS_URL`, `JENKINS_USER`, `JENKINS_TOKEN`, `JENKINS_BEARER_TOKEN`, `JENKINS_INSECURE`.
+**`internal/config/`** — Persists config to `~/.jenkins-cli/config.json` (0600 perms). Supports named profiles for multiple Jenkins servers. Profile resolution: `--profile` flag > `JENKINS_PROFILE` env > `current_profile` in config > `"default"`. Old flat configs are auto-migrated. Env var overrides: `JENKINS_URL`, `JENKINS_USER`, `JENKINS_TOKEN`, `JENKINS_BEARER_TOKEN`, `JENKINS_INSECURE`, `JENKINS_PROFILE`.
 
 **`internal/clientutil/`** — Factory that builds a `jenkins.Client` from config, dispatching on auth type.
 
@@ -46,7 +46,7 @@ Version is injected at build time via `-ldflags "-X github.com/PhilipKram/jenkin
 
 ## Conventions
 
-- Global flags on root command: `--json`, `--timeout` (default 30s), `--retries` (default 3)
+- Global flags on root command: `--profile`/`-p`, `--json`, `--timeout` (default 30s), `--retries` (default 3)
 - Tests use `httptest.NewServer()` for mock HTTP servers; standard `testing` package only
 - All API methods accept `context.Context` as first parameter
 - Commands follow pattern: `jenkins-cli <resource> <action> [args] [flags]`

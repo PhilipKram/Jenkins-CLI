@@ -14,8 +14,12 @@ var Cmd = &cobra.Command{
 	Use:     "configure",
 	Aliases: []string{"config"},
 	Short:   "Configure Jenkins connection settings",
-	Long:    `Set up or update the Jenkins server URL, username, and API token.`,
-	RunE:    runConfigure,
+	Long: `Set up or update the Jenkins server URL, username, and API token.
+
+Use --profile to create or update a named profile for managing multiple Jenkins servers:
+  jenkins-cli configure --profile images --url https://jenkins.example.com/images
+  jenkins-cli configure --profile helm --url https://jenkins.example.com/helm`,
+	RunE: runConfigure,
 }
 
 var (
@@ -35,6 +39,8 @@ func init() {
 }
 
 func runConfigure(cmd *cobra.Command, args []string) error {
+	profileName, _ := cmd.Root().Flags().GetString("profile")
+
 	// Try loading existing config as defaults
 	existing, _ := config.Load()
 	if existing == nil {
@@ -73,7 +79,12 @@ func runConfigure(cmd *cobra.Command, args []string) error {
 	}
 
 	path, _ := config.Path()
-	fmt.Printf("Configuration saved to %s\n", path)
+	if profileName != "" {
+		fmt.Printf("Configuration saved to %s (profile: %s)\n", path, profileName)
+	} else {
+		effectiveName, _ := config.CurrentProfileName()
+		fmt.Printf("Configuration saved to %s (profile: %s)\n", path, effectiveName)
+	}
 	return nil
 }
 

@@ -790,6 +790,14 @@
                     <span class="feature-code">jenkins-cli auth login</span>
                 </div>
                 <div class="glass-card gradient-border feature-card reveal" style="--reveal-delay: 6">
+                    <div class="feature-icon feature-icon-pink">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v-2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+                    </div>
+                    <h3 class="feature-title">Multi-Server</h3>
+                    <p class="feature-desc">Named profiles to manage multiple Jenkins servers with separate credentials. Switch with a flag or set a default.</p>
+                    <span class="feature-code">jenkins-cli -p images jobs list</span>
+                </div>
+                <div class="glass-card gradient-border feature-card reveal" style="--reveal-delay: 7">
                     <div class="feature-icon feature-icon-green">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
                     </div>
@@ -797,7 +805,7 @@
                     <p class="feature-desc">Replay pipeline builds with modified Jenkinsfiles, view stage status, and fetch per-stage logs.</p>
                     <span class="feature-code">jenkins-cli pipeline stages my-pipeline</span>
                 </div>
-                <div class="glass-card gradient-border feature-card reveal" style="--reveal-delay: 7">
+                <div class="glass-card gradient-border feature-card reveal" style="--reveal-delay: 8">
                     <div class="feature-icon feature-icon-orange">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
                     </div>
@@ -805,7 +813,7 @@
                     <p class="feature-desc">List, inspect, create, and delete credentials. Supports username-password, secret text, SSH keys, and certificates.</p>
                     <span class="feature-code">jenkins-cli credentials list</span>
                 </div>
-                <div class="glass-card gradient-border feature-card reveal" style="--reveal-delay: 8">
+                <div class="glass-card gradient-border feature-card reveal" style="--reveal-delay: 9">
                     <div class="feature-icon feature-icon-cyan">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
                     </div>
@@ -1002,6 +1010,18 @@
                         <div class="cmd-item"><span class="cmd-name">jenkins-cli auth refresh</span><span class="cmd-desc">Refresh OAuth token</span></div>
                         <div class="cmd-item"><span class="cmd-name">jenkins-cli auth logout</span><span class="cmd-desc">Clear all credentials</span></div>
                     </div>
+                    <div class="glass-card cmd-group-card">
+                        <div class="cmd-group-title">
+                            <div class="cmd-group-icon feature-icon-pink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v-2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg></div>
+                            Profiles
+                        </div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli configure --profile &lt;name&gt;</span><span class="cmd-desc">Create/update a profile</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli profile list</span><span class="cmd-desc">List all profiles</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli profile use &lt;name&gt;</span><span class="cmd-desc">Set active profile</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli profile show &lt;name&gt;</span><span class="cmd-desc">Show profile details</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli profile delete &lt;name&gt;</span><span class="cmd-desc">Delete a profile</span></div>
+                        <div class="cmd-item"><span class="cmd-name">jenkins-cli -p &lt;name&gt; jobs list</span><span class="cmd-desc">Use profile for one command</span></div>
+                    </div>
                 </div>
             </div>
 
@@ -1126,6 +1146,7 @@
             <div class="glass-card reveal" style="padding: var(--sp-5) var(--sp-6); margin-top: var(--sp-8);">
                 <p style="font-size: var(--text-sm); color: var(--text-secondary);">
                     <strong style="color: var(--text-primary);">Global Flags:</strong>
+                    <code style="color: var(--accent); font-size: var(--text-xs); margin: 0 var(--sp-1);">-p, --profile</code> Configuration profile &nbsp;&middot;&nbsp;
                     <code style="color: var(--accent); font-size: var(--text-xs); margin: 0 var(--sp-1);">--json</code> JSON output &nbsp;&middot;&nbsp;
                     <code style="color: var(--accent); font-size: var(--text-xs); margin: 0 var(--sp-1);">--timeout</code> Request timeout (default: 30s) &nbsp;&middot;&nbsp;
                     <code style="color: var(--accent); font-size: var(--text-xs); margin: 0 var(--sp-1);">--retries</code> Max retries (default: 3)
@@ -1303,6 +1324,7 @@
                         <tr><td>JENKINS_TOKEN</td><td>API token for basic auth</td></tr>
                         <tr><td>JENKINS_BEARER_TOKEN</td><td>Bearer token (overrides auth type to bearer)</td></tr>
                         <tr><td>JENKINS_INSECURE</td><td>Skip TLS certificate verification</td></tr>
+                        <tr><td>JENKINS_PROFILE</td><td>Select a named configuration profile</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -1349,10 +1371,17 @@
 <pre><span class="cm"># Quick setup with basic auth</span>
 <span class="cmd">jenkins-cli configure</span>
 
-<span class="cm"># Or use environment variables</span>
+<span class="cm"># Manage multiple Jenkins servers with profiles</span>
+<span class="cmd">jenkins-cli configure --profile images --url https://jenkins.example.com/images</span>
+<span class="cmd">jenkins-cli configure --profile helm --url https://jenkins.example.com/helm</span>
+<span class="cmd">jenkins-cli profile use images</span>
+<span class="cmd">jenkins-cli -p helm jobs list</span>
+
+<span class="cm"># Or use environment variables (basic auth)</span>
 <span class="cmd">export JENKINS_URL="https://jenkins.example.com"</span>
-<span class="cmd">export JENKINS_USER="admin"</span>
+<span class="cmd">export JENKINS_USER="your-username"</span>
 <span class="cmd">export JENKINS_TOKEN="your-api-token"</span>
+<span class="cmd">export JENKINS_PROFILE="images"</span>
 
 <span class="cm"># Generate shell completions</span>
 <span class="cmd">jenkins-cli completion zsh > "${fpath[1]}/_jenkins-cli"</span></pre>
