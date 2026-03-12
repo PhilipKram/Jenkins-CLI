@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	jenkinserrors "github.com/PhilipKram/jenkins-cli/internal/errors"
 )
 
 type Build struct {
@@ -226,9 +228,17 @@ func (c *Client) ReplayBuild(ctx context.Context, jobName string, number int, sc
 		formData.Set("mainScript", script)
 	}
 
-	// POST to the replay/rebuild endpoint
-	path := fmt.Sprintf("/job/%s/%d/replay/rebuild", encodeJobPath(jobName), number)
-	err = c.postFormWithCrumb(ctx, path, strings.NewReader(formData.Encode()))
+	// POST to the replay endpoint — try /replay/run first (newer Jenkins),
+	// fall back to /replay/rebuild (older Jenkins)
+	encodedJob := encodeJobPath(jobName)
+	formBody := formData.Encode()
+
+	path := fmt.Sprintf("/job/%s/%d/replay/run", encodedJob, number)
+	err = c.postFormWithCrumb(ctx, path, strings.NewReader(formBody))
+	if err != nil && jenkinserrors.IsNotFound(err) {
+		path = fmt.Sprintf("/job/%s/%d/replay/rebuild", encodedJob, number)
+		err = c.postFormWithCrumb(ctx, path, strings.NewReader(formBody))
+	}
 	if err != nil {
 		return 0, err
 	}

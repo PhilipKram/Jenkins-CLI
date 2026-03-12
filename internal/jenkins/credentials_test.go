@@ -363,7 +363,8 @@ func TestDeleteCredentialNotFound(t *testing.T) {
 		switch r.URL.Path {
 		case "/crumbIssuer/api/json":
 			w.WriteHeader(http.StatusNotFound)
-		case "/credentials/store/system/domain/_/credential/nonexistent/doDelete":
+		case "/credentials/store/system/domain/_/credential/nonexistent/doDelete",
+			"/manage/credentials/store/system/domain/_/credential/nonexistent/doDelete":
 			w.WriteHeader(http.StatusNotFound)
 			w.Write([]byte("not found"))
 		default:
