@@ -235,7 +235,7 @@ func (c *Client) ReplayBuild(ctx context.Context, jobName string, number int, sc
 
 	path := fmt.Sprintf("/job/%s/%d/replay/run", encodedJob, number)
 	err = c.postFormWithCrumb(ctx, path, strings.NewReader(formBody))
-	if err != nil && jenkinserrors.IsNotFound(err) {
+	if _, ok := jenkinserrors.AsNotFoundError(err); ok {
 		path = fmt.Sprintf("/job/%s/%d/replay/rebuild", encodedJob, number)
 		err = c.postFormWithCrumb(ctx, path, strings.NewReader(formBody))
 	}

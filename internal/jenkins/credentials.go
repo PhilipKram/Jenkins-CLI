@@ -50,7 +50,7 @@ type credentialListResponse struct {
 }
 
 // credentialStorePaths returns the paths to try for the credential store, in order.
-// Newer Jenkins versions (2.�+) require the /manage/ prefix.
+// Newer Jenkins versions (2.x+) require the /manage/ prefix.
 func credentialStorePaths(suffix string) []string {
 	return []string{
 		"/credentials/store/system/" + suffix,
@@ -74,7 +74,7 @@ func (c *Client) ListCredentials(ctx context.Context, domain string) ([]Credenti
 		if lastErr == nil {
 			return resp.Credentials, nil
 		}
-		if !jenkinserrors.IsNotFound(lastErr) {
+		if _, ok := jenkinserrors.AsNotFoundError(lastErr); !ok {
 			return nil, fmt.Errorf("listing credentials: %w", lastErr)
 		}
 	}
@@ -99,11 +99,11 @@ func (c *Client) GetCredential(ctx context.Context, id, domain string) (*Credent
 			cred.Domain = domain
 			return &cred, nil
 		}
-		if !jenkinserrors.IsNotFound(lastErr) {
-			return nil, c.wrapNotFoundError(lastErr, id)
+		if _, ok := jenkinserrors.AsNotFoundError(lastErr); !ok {
+			return nil, fmt.Errorf("credential %q not found: %w", id, lastErr)
 		}
 	}
-	return nil, c.wrapNotFoundError(lastErr, id)
+	return nil, fmt.Errorf("credential %q not found: %w", id, lastErr)
 }
 
 // CreateCredential creates a new credential in Jenkins.
@@ -158,7 +158,7 @@ func (c *Client) CreateCredential(ctx context.Context, credType, domain string, 
 		if lastErr == nil {
 			return nil
 		}
-		if !jenkinserrors.IsNotFound(lastErr) {
+		if _, ok := jenkinserrors.AsNotFoundError(lastErr); !ok {
 			return fmt.Errorf("creating credential: %w", lastErr)
 		}
 	}
@@ -181,9 +181,9 @@ func (c *Client) DeleteCredential(ctx context.Context, id, domain string) error 
 		if lastErr == nil {
 			return nil
 		}
-		if !jenkinserrors.IsNotFound(lastErr) {
-			return c.wrapNotFoundError(lastErr, id)
+		if _, ok := jenkinserrors.AsNotFoundError(lastErr); !ok {
+			return fmt.Errorf("deleting credential %q: %w", id, lastErr)
 		}
 	}
-	return c.wrapNotFoundError(lastErr, id)
+	return fmt.Errorf("deleting credential %q: %w", id, lastErr)
 }
