@@ -172,7 +172,7 @@ func saveMultiConfig(mc *MultiConfig) error {
 }
 
 // Load returns the Config for the active profile.
-// The active profile is determined by: --profile flag > current_profile in config > "default".
+// The active profile is determined by: --profile flag > JENKINS_PROFILE env var > current_profile in config > "default".
 // Environment variables override the loaded profile's fields.
 func Load() (*Config, error) {
 	mc, err := loadMultiConfig()
@@ -209,14 +209,30 @@ func Load() (*Config, error) {
 func Save(cfg *Config) error {
 	mc, err := loadMultiConfig()
 	if err != nil {
-		// If config doesn't exist yet, create a new multi-config
-		mc = &MultiConfig{
-			CurrentProfile: DefaultProfileName,
-			Profiles:       make(map[string]Config),
+		// Only create a new multi-config if the config file does not exist.
+		path, pathErr := Path()
+		if pathErr != nil {
+			return pathErr
+		}
+		if _, statErr := os.Stat(path); os.IsNotExist(statErr) {
+			mc = &MultiConfig{
+				CurrentProfile: DefaultProfileName,
+				Profiles:       make(map[string]Config),
+			}
+		} else {
+			// For other errors (e.g., parse/permission), return the error to avoid data loss.
+			return err
 		}
 	}
 
 	name := resolveProfileName(mc)
+
+	// Ensure CurrentProfile points to an existing profile. On first save, or if
+	// CurrentProfile refers to a missing profile, set it to the profile being saved.
+	if _, ok := mc.Profiles[mc.CurrentProfile]; !ok {
+		mc.CurrentProfile = name
+	}
+
 	mc.Profiles[name] = *cfg
 
 	return saveMultiConfig(mc)

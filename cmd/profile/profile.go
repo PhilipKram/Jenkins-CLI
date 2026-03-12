@@ -139,12 +139,16 @@ var showCmd = &cobra.Command{
 			return err
 		}
 
-		name := mc.CurrentProfile
+		var name string
 		if len(args) > 0 {
 			name = args[0]
-		}
-		if config.ActiveProfile != "" {
-			name = config.ActiveProfile
+		} else {
+			// Use standard profile resolution: --profile flag > JENKINS_PROFILE env > current_profile
+			resolved, err := config.CurrentProfileName()
+			if err != nil {
+				return err
+			}
+			name = resolved
 		}
 
 		p, ok := mc.Profiles[name]

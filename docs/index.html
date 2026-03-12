@@ -1377,8 +1377,10 @@
 <span class="cmd">jenkins-cli profile use images</span>
 <span class="cmd">jenkins-cli -p helm jobs list</span>
 
-<span class="cm"># Or use environment variables</span>
+<span class="cm"># Or use environment variables (basic auth)</span>
 <span class="cmd">export JENKINS_URL="https://jenkins.example.com"</span>
+<span class="cmd">export JENKINS_USER="your-username"</span>
+<span class="cmd">export JENKINS_TOKEN="your-api-token"</span>
 <span class="cmd">export JENKINS_PROFILE="images"</span>
 
 <span class="cm"># Generate shell completions</span>

@@ -100,6 +100,7 @@ To register multiple Jenkins servers, use --profile and --name:
 func newCmdUninstall() *cobra.Command {
 	var scope string
 	var client string
+	var serverName string
 
 	cmd := &cobra.Command{
 		Use:   "uninstall",
@@ -110,28 +111,31 @@ Supported clients:
   claude-code     - Claude Code CLI (default)
   claude-desktop  - Claude Desktop application`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runUninstall(client, scope)
+			return runUninstall(client, scope, serverName)
 		},
 	}
 
 	cmd.Flags().StringVar(&scope, "scope", "user", "Configuration scope: user, local, or project (claude-code only)")
 	cmd.Flags().StringVar(&client, "client", "claude-code", "AI client: claude-code or claude-desktop")
+	cmd.Flags().StringVar(&serverName, "name", "jenkins-cli", "MCP server name (must match the name used during install)")
 
 	return cmd
 }
 
 func newCmdStatus() *cobra.Command {
 	var client string
+	var serverName string
 
 	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Check if jenkins-cli is registered as an MCP server",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runStatus(client)
+			return runStatus(client, serverName)
 		},
 	}
 
 	cmd.Flags().StringVar(&client, "client", "claude-code", "AI client: claude-code")
+	cmd.Flags().StringVar(&serverName, "name", "jenkins-cli", "MCP server name to check")
 
 	return cmd
 }
@@ -299,37 +303,37 @@ func installClaudeDesktop(profileName, serverName string) error {
 	return nil
 }
 
-func runUninstall(client, scope string) error {
+func runUninstall(client, scope, serverName string) error {
 	switch client {
 	case "claude-code":
-		return uninstallClaudeCode(scope)
+		return uninstallClaudeCode(scope, serverName)
 	case "claude-desktop":
-		return uninstallClaudeDesktop()
+		return uninstallClaudeDesktop(serverName)
 	default:
 		return fmt.Errorf("unsupported client: %s (supported: claude-code, claude-desktop)", client)
 	}
 }
 
-func uninstallClaudeCode(scope string) error {
+func uninstallClaudeCode(scope, serverName string) error {
 	claudePath, err := findClaude()
 	if err != nil {
 		return err
 	}
 
 	//nolint:gosec // Arguments are constructed from trusted sources
-	cmd := exec.Command(claudePath, "mcp", "remove", "jenkins-cli", "--scope", scope)
+	cmd := exec.Command(claudePath, "mcp", "remove", serverName, "--scope", scope)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to remove jenkins-cli from Claude Code: %w", err)
+		return fmt.Errorf("failed to remove %s from Claude Code: %w", serverName, err)
 	}
 
-	fmt.Fprintf(os.Stderr, "Successfully removed jenkins-cli MCP server from Claude Code (scope: %s)\n", scope)
+	fmt.Fprintf(os.Stderr, "Successfully removed %s MCP server from Claude Code (scope: %s)\n", serverName, scope)
 	return nil
 }
 
-func uninstallClaudeDesktop() error {
+func uninstallClaudeDesktop(serverName string) error {
 	configPath, err := claudeDesktopConfigPath()
 	if err != nil {
 		return err
@@ -350,14 +354,14 @@ func uninstallClaudeDesktop() error {
 
 	mcpServers, ok := config["mcpServers"].(map[string]interface{})
 	if !ok {
-		return fmt.Errorf("jenkins-cli is not registered as an MCP server in Claude Desktop")
+		return fmt.Errorf("%s is not registered as an MCP server in Claude Desktop", serverName)
 	}
 
-	if _, exists := mcpServers["jenkins-cli"]; !exists {
-		return fmt.Errorf("jenkins-cli is not registered as an MCP server in Claude Desktop")
+	if _, exists := mcpServers[serverName]; !exists {
+		return fmt.Errorf("%s is not registered as an MCP server in Claude Desktop", serverName)
 	}
 
-	delete(mcpServers, "jenkins-cli")
+	delete(mcpServers, serverName)
 	config["mcpServers"] = mcpServers
 
 	output, err := json.MarshalIndent(config, "", "  ")
@@ -369,12 +373,12 @@ func uninstallClaudeDesktop() error {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 
-	fmt.Fprintf(os.Stderr, "Successfully removed jenkins-cli MCP server from Claude Desktop\n")
+	fmt.Fprintf(os.Stderr, "Successfully removed %s MCP server from Claude Desktop\n", serverName)
 	fmt.Fprintf(os.Stderr, "Config file: %s\n", configPath)
 	return nil
 }
 
-func runStatus(client string) error {
+func runStatus(client, serverName string) error {
 	if client != "claude-code" {
 		return fmt.Errorf("status is currently only supported for claude-code")
 	}
@@ -385,12 +389,12 @@ func runStatus(client string) error {
 	}
 
 	//nolint:gosec // Arguments are constructed from trusted sources
-	cmd := exec.Command(claudePath, "mcp", "get", "jenkins-cli")
+	cmd := exec.Command(claudePath, "mcp", "get", serverName)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("jenkins-cli is not registered as an MCP server in Claude Code (or failed to check): %w", err)
+		return fmt.Errorf("%s is not registered as an MCP server in Claude Code (or failed to check): %w", serverName, err)
 	}
 
 	return nil
