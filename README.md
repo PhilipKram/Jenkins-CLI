@@ -136,7 +136,7 @@ Profile resolution order:
 
 Existing single-server configs are automatically migrated to a `"default"` profile.
 
-#### Multiple MCP Servers
+#### Multiple MCP Server Instances
 
 Register separate MCP server instances for each Jenkins profile:
 
@@ -146,7 +146,7 @@ jenkins-cli mcp install --profile helm --name jenkins-helm
 jenkins-cli mcp install --profile hotfix --name jenkins-hotfix
 ```
 
-Each MCP server instance uses the `JENKINS_PROFILE` environment variable to select its profile.
+Each MCP server instance uses the `JENKINS_PROFILE` environment variable to select its profile. See [MCP Server](#mcp-server) for full details.
 
 ### Environment Variables
 
@@ -379,6 +379,132 @@ jenkins-cli builds list my-pipeline --json | jq '.[0]'
     --retries   Maximum number of retries (default: 3)
 ```
 
+## MCP Server
+
+Jenkins CLI includes a built-in [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server, allowing AI assistants like Claude to interact with your Jenkins servers directly.
+
+### Quick Start with npx
+
+The easiest way to use the MCP server — no manual installation required:
+
+```json
+{
+  "mcpServers": {
+    "jenkins-cli": {
+      "command": "npx",
+      "args": ["-y", "@philipkram/jenkins-cli-mcp"]
+    }
+  }
+}
+```
+
+`npx` automatically downloads the correct binary for your platform on first run.
+
+### Install from Binary
+
+If you already have `jenkins-cli` installed:
+
+**Claude Code:**
+
+```bash
+jenkins-cli mcp install
+```
+
+**Claude Desktop:**
+
+```bash
+jenkins-cli mcp install --client claude-desktop
+```
+
+**Manual configuration:**
+
+```json
+{
+  "mcpServers": {
+    "jenkins-cli": {
+      "command": "jenkins-cli",
+      "args": ["mcp", "serve"]
+    }
+  }
+}
+```
+
+### Configuration via MCP
+
+The MCP server includes configuration tools so AI assistants can set up Jenkins connectivity interactively — no terminal required:
+
+| Tool | Description |
+|------|-------------|
+| `config_status` | Check if Jenkins is configured, test connectivity, and get setup instructions |
+| `config_set` | Create or update a profile with URL, credentials, and auth type |
+| `profile_list` | List all configured profiles with URLs and auth types |
+| `profile_switch` | Switch the active Jenkins server profile |
+| `profile_delete` | Remove a profile |
+
+On first use, if Jenkins is not configured, the AI assistant will receive setup instructions and can use `config_set` to configure the connection.
+
+### Multiple Jenkins Servers
+
+Register separate MCP instances per profile:
+
+```bash
+jenkins-cli mcp install --profile images --name jenkins-images
+jenkins-cli mcp install --profile helm --name jenkins-helm
+```
+
+Or pass the profile as an environment variable:
+
+```json
+{
+  "mcpServers": {
+    "jenkins-images": {
+      "command": "npx",
+      "args": ["-y", "@philipkram/jenkins-cli-mcp"],
+      "env": { "JENKINS_PROFILE": "images" }
+    },
+    "jenkins-helm": {
+      "command": "npx",
+      "args": ["-y", "@philipkram/jenkins-cli-mcp"],
+      "env": { "JENKINS_PROFILE": "helm" }
+    }
+  }
+}
+```
+
+The AI can also switch profiles at runtime using the `profile_switch` tool.
+
+### Available MCP Tools
+
+| Category | Tools |
+|----------|-------|
+| **Jobs** | `job_list`, `job_view`, `job_build`, `job_enable`, `job_disable` |
+| **Builds** | `build_list`, `build_view`, `build_log`, `build_last`, `build_stop`, `build_artifacts` |
+| **Pipeline** | `pipeline_validate`, `pipeline_stages`, `pipeline_stage_log` |
+| **Nodes** | `node_list`, `node_view` |
+| **Queue** | `queue_list`, `queue_cancel` |
+| **Credentials** | `credential_list`, `credential_view` |
+| **Views** | `view_list` |
+| **System** | `system_info` |
+| **Multibranch** | `multibranch_branches`, `multibranch_scan`, `multibranch_scan_log` |
+| **Config** | `config_status`, `config_set`, `profile_list`, `profile_switch`, `profile_delete` |
+
+### MCP Resources
+
+| Resource | URI Pattern | Description |
+|----------|-------------|-------------|
+| Build Log | `jenkins:///{job}/{number}/log` | Console output for a build |
+| Job Config | `jenkins:///{job}/config.xml` | Job configuration XML |
+| System Log | `jenkins:///system/log` | Jenkins system log |
+
+### MCP Prompts
+
+| Prompt | Description |
+|--------|-------------|
+| `diagnose_build_failure` | Analyze build logs and stages to identify failure causes |
+| `review_job_config` | Review job configuration against best practices |
+| `summarize_build_history` | Analyze build trends and health metrics |
+| `validate_jenkinsfile` | Validate Jenkinsfile syntax and review best practices |
+
 ## Shell Completion
 
 ```bash
@@ -412,7 +538,9 @@ jenkins-cli completion fish > ~/.config/fish/completions/jenkins-cli.fish
 │   ├── plugins/                # Plugins commands
 │   ├── system/                 # System commands
 │   ├── upgrade/                # Self-upgrade command
-│   └── open/                   # Open-in-browser command
+│   ├── open/                   # Open-in-browser command
+│   └── mcp/                    # MCP server command (serve, install)
+├── npm/                        # npm package for npx distribution
 └── internal/
     ├── jenkins/                # Jenkins API client
     │   ├── client.go           # HTTP client with auth & CSRF crumb support
@@ -433,6 +561,7 @@ jenkins-cli completion fish > ~/.config/fish/completions/jenkins-cli.fish
     ├── config/                 # Configuration management (multi-auth)
     ├── clientutil/             # Auth dispatch (config → client)
     ├── errors/                 # Structured error types with suggestions
+    ├── mcp/                    # MCP server (tools, resources, prompts)
     ├── oauth/                  # OAuth2 flow (auth code + PKCE, refresh)
     └── output/                 # Table & JSON output formatting
 ```

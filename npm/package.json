@@ -1,0 +1,42 @@
+{
+  "name": "@philipkram/jenkins-cli-mcp",
+  "version": "1.0.0",
+  "description": "Jenkins CLI MCP server — manage Jenkins jobs, builds, pipelines, nodes, credentials, and more from AI assistants",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PhilipKram/Jenkins-CLI"
+  },
+  "homepage": "https://github.com/PhilipKram/Jenkins-CLI",
+  "keywords": [
+    "jenkins",
+    "cli",
+    "mcp",
+    "model-context-protocol",
+    "devops",
+    "ci-cd"
+  ],
+  "bin": {
+    "jenkins-cli-mcp": "./bin/jenkins-cli-mcp.js"
+  },
+  "scripts": {
+    "postinstall": "node install.js"
+  },
+  "files": [
+    "bin/",
+    "install.js",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=16"
+  },
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ]
+}
