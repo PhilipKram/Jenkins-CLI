@@ -72,25 +72,53 @@ jobs:
           VERSION="${GITHUB_REF_NAME}"
           RELEASE_URL="https://github.com/PhilipKram/Jenkins-CLI/releases/tag/${VERSION}"
 
-          # Extract release notes and clean up for Teams card
-          RELEASE_NOTES=$(gh release view "${VERSION}" --json body --jq '.body' 2>/dev/null || echo "")
-
-          if [ -n "$RELEASE_NOTES" ]; then
-            CHANGELOG=$(echo "$RELEASE_NOTES" \
-              | sed 's/^[a-f0-9]\{7,40\} //' \
-              | sed 's/^\* [a-f0-9]\{7,40\} /* /' \
-              | grep -v '^## ' \
-              | grep -v '^Changelog$' \
-              | grep -v '^$' \
-              | sed 's/^\* /• /' \
-              | head -15 \
-              | sed 's/"/\\"/g; s/$/\\n/' \
-              | tr -d '\n')
-            if [ ${#CHANGELOG} -gt 1000 ]; then
-              CHANGELOG="${CHANGELOG:0:997}..."
-            fi
+          # Get release date from GitHub (not workflow run time)
+          RELEASE_DATE=$(gh release view "${VERSION}" --json publishedAt --jq '.publishedAt[:10]' 2>/dev/null || echo "")
+          if [ -n "$RELEASE_DATE" ]; then
+            RELEASE_DATE=$(date -d "$RELEASE_DATE" +"%B %d, %Y" 2>/dev/null || echo "$RELEASE_DATE")
           else
-            CHANGELOG="No changelog available. See the release page for details."
+            RELEASE_DATE=$(date -u +"%B %d, %Y")
+          fi
+
+          # Extract release notes from GitHub release
+          RELEASE_BODY=$(gh release view "${VERSION}" --json body --jq '.body' 2>/dev/null || echo "")
+
+          # Parse features, fixes, and other changes into separate sections
+          FEATURES=""
+          FIXES=""
+          OTHERS=""
+
+          if [ -n "$RELEASE_BODY" ]; then
+            CURRENT_SECTION=""
+            while IFS= read -r line; do
+              case "$line" in
+                *"New Features"*) CURRENT_SECTION="features" ;;
+                *"Bug Fixes"*)    CURRENT_SECTION="fixes" ;;
+                *"Performance"*|*"Other Changes"*) CURRENT_SECTION="others" ;;
+                \*\ *|-\ *)
+                  # Clean: strip leading bullet and commit hashes, normalize to bullet point
+                  clean=$(echo "$line" | sed 's/^[*-] [a-f0-9]\{7,40\} //' | sed 's/^[*-] //' | tr -d '\r')
+                  case "$CURRENT_SECTION" in
+                    features) FEATURES="${FEATURES}${FEATURES:+\n}${clean}" ;;
+                    fixes)    FIXES="${FIXES}${FIXES:+\n}${clean}" ;;
+                    *)        OTHERS="${OTHERS}${OTHERS:+\n}${clean}" ;;
+                  esac
+                  ;;
+              esac
+            done <<< "$RELEASE_BODY"
+          fi
+
+          # Fallback: if no sections were parsed, extract all bullet lines
+          if [ -z "$FEATURES" ] && [ -z "$FIXES" ] && [ -z "$OTHERS" ]; then
+            OTHERS=$(echo "$RELEASE_BODY" \
+              | grep '^[*-] ' \
+              | sed 's/^[*-] [a-f0-9]\{7,40\} //' \
+              | sed 's/^[*-] //' \
+              | head -15 \
+              | tr '\r' ' ')
+            if [ -z "$OTHERS" ]; then
+              OTHERS="See the release page for details."
+            fi
           fi
 
           # Count release assets
@@ -101,13 +129,57 @@ jobs:
           if [ -n "$PREV_TAG" ]; then
             COMMIT_COUNT=$(git rev-list --count "${PREV_TAG}..${VERSION}" 2>/dev/null || echo "?")
             COMPARE_INFO="${COMMIT_COUNT} commits since ${PREV_TAG}"
+            COMPARE_URL="https://github.com/PhilipKram/Jenkins-CLI/compare/${PREV_TAG}...${VERSION}"
           else
             COMPARE_INFO="Initial release"
+            COMPARE_URL="${RELEASE_URL}"
           fi
 
-          curl -s -X POST "$TEAMS_WEBHOOK_URL" \
-            -H "Content-Type: application/json" \
-            -d '{
+          # Build the Adaptive Card JSON payload safely using jq
+          # Start with changelog section blocks
+          CHANGELOG_BLOCKS="[]"
+
+          add_section() {
+            local title="$1" color="$2" text="$3"
+            if [ -n "$text" ]; then
+              CHANGELOG_BLOCKS=$(echo "$CHANGELOG_BLOCKS" | jq \
+                --arg title "$title" \
+                --arg color "$color" \
+                --arg text "$text" \
+                '. + [
+                  {
+                    "type": "RichTextBlock",
+                    "spacing": "Small",
+                    "inlines": [
+                      {"type": "TextRun", "text": $title, "weight": "Bolder", "size": "Small", "color": $color}
+                    ]
+                  },
+                  {
+                    "type": "TextBlock",
+                    "text": $text,
+                    "wrap": true,
+                    "size": "Small",
+                    "spacing": "None"
+                  }
+                ]')
+            fi
+          }
+
+          add_section "New Features" "Good" "$FEATURES"
+          add_section "Bug Fixes" "Attention" "$FIXES"
+          add_section "Other Changes" "Default" "$OTHERS"
+
+          # Build the full payload with jq for safe JSON escaping
+          PAYLOAD=$(jq -n \
+            --arg version "$VERSION" \
+            --arg compare_info "$COMPARE_INFO" \
+            --arg asset_count "${ASSET_COUNT} artifacts" \
+            --arg release_date "$RELEASE_DATE" \
+            --arg release_url "$RELEASE_URL" \
+            --arg download_url "${RELEASE_URL}#assets" \
+            --arg compare_url "$COMPARE_URL" \
+            --argjson changelog_blocks "$CHANGELOG_BLOCKS" \
+            '{
               "type": "message",
               "attachments": [{
                 "contentType": "application/vnd.microsoft.card.adaptive",
@@ -115,69 +187,76 @@ jobs:
                   "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
                   "type": "AdaptiveCard",
                   "version": "1.4",
+                  "msteams": { "width": "Full" },
                   "body": [
                     {
-                      "type": "TextBlock",
-                      "size": "Large",
-                      "weight": "Bolder",
-                      "text": "jenkins-cli '"${VERSION}"' released"
+                      "type": "Container",
+                      "style": "accent",
+                      "bleed": true,
+                      "items": [{
+                        "type": "ColumnSet",
+                        "columns": [
+                          {
+                            "type": "Column",
+                            "width": "stretch",
+                            "items": [
+                              { "type": "TextBlock", "text": "jenkins-cli", "size": "Small", "weight": "Bolder", "color": "Light" },
+                              { "type": "TextBlock", "text": $version, "size": "ExtraLarge", "weight": "Bolder", "color": "Light", "spacing": "None" }
+                            ]
+                          },
+                          {
+                            "type": "Column",
+                            "width": "auto",
+                            "verticalContentAlignment": "Center",
+                            "items": [
+                              { "type": "TextBlock", "text": "NEW RELEASE", "size": "Small", "weight": "Bolder", "color": "Light" }
+                            ]
+                          }
+                        ]
+                      }]
                     },
                     {
                       "type": "ColumnSet",
-                      "columns": [
-                        {
-                          "type": "Column",
-                          "width": "auto",
-                          "items": [
-                            {
-                              "type": "TextBlock",
-                              "text": "'"${COMPARE_INFO}"'",
-                              "isSubtle": true,
-                              "size": "Small"
-                            }
-                          ]
-                        },
-                        {
-                          "type": "Column",
-                          "width": "auto",
-                          "items": [
-                            {
-                              "type": "TextBlock",
-                              "text": "📦 '"${ASSET_COUNT}"' artifacts",
-                              "isSubtle": true,
-                              "size": "Small"
-                            }
-                          ]
-                        }
-                      ]
-                    },
-                    {
-                      "type": "TextBlock",
-                      "text": "**What'"'"'s Changed**",
-                      "weight": "Bolder",
                       "spacing": "Medium",
-                      "separator": true
-                    },
+                      "columns": [
+                        { "type": "Column", "width": "auto", "items": [{ "type": "TextBlock", "text": $compare_info, "isSubtle": true, "size": "Small" }] },
+                        { "type": "Column", "width": "auto", "items": [{ "type": "TextBlock", "text": $asset_count, "isSubtle": true, "size": "Small" }] },
+                        { "type": "Column", "width": "auto", "items": [{ "type": "TextBlock", "text": $release_date, "isSubtle": true, "size": "Small" }] }
+                      ]
+                    }
+                  ] + $changelog_blocks + [
                     {
-                      "type": "TextBlock",
-                      "text": "'"${CHANGELOG}"'",
-                      "wrap": true,
-                      "size": "Small",
-                      "spacing": "Small"
+                      "type": "Container",
+                      "spacing": "Medium",
+                      "separator": true,
+                      "items": [{
+                        "type": "ColumnSet",
+                        "columns": [{
+                          "type": "Column",
+                          "width": "auto",
+                          "items": [{ "type": "TextBlock", "text": "Install: `brew install PhilipKram/tap/jenkins-cli`", "isSubtle": true, "size": "Small" }]
+                        }]
+                      }]
                     }
                   ],
                   "actions": [
-                    {
-                      "type": "Action.OpenUrl",
-                      "title": "📋 View Release",
-                      "url": "'"${RELEASE_URL}"'"
-                    },
-                    {
-                      "type": "Action.OpenUrl",
-                      "title": "⬇️ Download",
-                      "url": "'"${RELEASE_URL}"'#assets"
-                    }
+                    { "type": "Action.OpenUrl", "title": "View Release", "url": $release_url, "style": "positive" },
+                    { "type": "Action.OpenUrl", "title": "Download", "url": $download_url },
+                    { "type": "Action.OpenUrl", "title": "Compare Changes", "url": $compare_url }
                   ]
                 }
               }]
-            }'
+            }')
+
+          RESPONSE=$(curl -s -w "\n%{http_code}" --fail-with-body -X POST "$TEAMS_WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD")
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          if [ "$HTTP_CODE" -ge 400 ] 2>/dev/null; then
+            echo "::error::Teams notification failed with HTTP ${HTTP_CODE}: ${BODY}"
+            exit 1
+          fi
+          echo "Teams notification sent successfully (HTTP ${HTTP_CODE})"
