@@ -170,6 +170,7 @@ jobs:
           add_section "Other Changes" "Default" "$OTHERS"
 
           # Build the full payload with jq for safe JSON escaping
+          # Note: "$schema" key must use ("$schema") syntax to avoid jq variable interpolation
           PAYLOAD=$(jq -n \
             --arg version "$VERSION" \
             --arg compare_info "$COMPARE_INFO" \
@@ -179,66 +180,68 @@ jobs:
             --arg download_url "${RELEASE_URL}#assets" \
             --arg compare_url "$COMPARE_URL" \
             --argjson changelog_blocks "$CHANGELOG_BLOCKS" \
-            '{
+            '
+            def header_block:
+              {
+                "type": "Container",
+                "style": "accent",
+                "bleed": true,
+                "items": [{
+                  "type": "ColumnSet",
+                  "columns": [
+                    {
+                      "type": "Column",
+                      "width": "stretch",
+                      "items": [
+                        { "type": "TextBlock", "text": "jenkins-cli", "size": "Small", "weight": "Bolder", "color": "Light" },
+                        { "type": "TextBlock", "text": $version, "size": "ExtraLarge", "weight": "Bolder", "color": "Light", "spacing": "None" }
+                      ]
+                    },
+                    {
+                      "type": "Column",
+                      "width": "auto",
+                      "verticalContentAlignment": "Center",
+                      "items": [
+                        { "type": "TextBlock", "text": "NEW RELEASE", "size": "Small", "weight": "Bolder", "color": "Light" }
+                      ]
+                    }
+                  ]
+                }]
+              };
+            def meta_block:
+              {
+                "type": "ColumnSet",
+                "spacing": "Medium",
+                "columns": [
+                  { "type": "Column", "width": "auto", "items": [{ "type": "TextBlock", "text": $compare_info, "isSubtle": true, "size": "Small" }] },
+                  { "type": "Column", "width": "auto", "items": [{ "type": "TextBlock", "text": $asset_count, "isSubtle": true, "size": "Small" }] },
+                  { "type": "Column", "width": "auto", "items": [{ "type": "TextBlock", "text": $release_date, "isSubtle": true, "size": "Small" }] }
+                ]
+              };
+            def install_block:
+              {
+                "type": "Container",
+                "spacing": "Medium",
+                "separator": true,
+                "items": [{
+                  "type": "ColumnSet",
+                  "columns": [{
+                    "type": "Column",
+                    "width": "auto",
+                    "items": [{ "type": "TextBlock", "text": "Install: brew install PhilipKram/tap/jenkins-cli", "isSubtle": true, "size": "Small" }]
+                  }]
+                }]
+              };
+            {
               "type": "message",
               "attachments": [{
                 "contentType": "application/vnd.microsoft.card.adaptive",
                 "content": {
-                  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                  ("$schema"): "http://adaptivecards.io/schemas/adaptive-card.json",
                   "type": "AdaptiveCard",
                   "version": "1.4",
                   "msteams": { "width": "Full" },
-                  "body": [
-                    {
-                      "type": "Container",
-                      "style": "accent",
-                      "bleed": true,
-                      "items": [{
-                        "type": "ColumnSet",
-                        "columns": [
-                          {
-                            "type": "Column",
-                            "width": "stretch",
-                            "items": [
-                              { "type": "TextBlock", "text": "jenkins-cli", "size": "Small", "weight": "Bolder", "color": "Light" },
-                              { "type": "TextBlock", "text": $version, "size": "ExtraLarge", "weight": "Bolder", "color": "Light", "spacing": "None" }
-                            ]
-                          },
-                          {
-                            "type": "Column",
-                            "width": "auto",
-                            "verticalContentAlignment": "Center",
-                            "items": [
-                              { "type": "TextBlock", "text": "NEW RELEASE", "size": "Small", "weight": "Bolder", "color": "Light" }
-                            ]
-                          }
-                        ]
-                      }]
-                    },
-                    {
-                      "type": "ColumnSet",
-                      "spacing": "Medium",
-                      "columns": [
-                        { "type": "Column", "width": "auto", "items": [{ "type": "TextBlock", "text": $compare_info, "isSubtle": true, "size": "Small" }] },
-                        { "type": "Column", "width": "auto", "items": [{ "type": "TextBlock", "text": $asset_count, "isSubtle": true, "size": "Small" }] },
-                        { "type": "Column", "width": "auto", "items": [{ "type": "TextBlock", "text": $release_date, "isSubtle": true, "size": "Small" }] }
-                      ]
-                    }
-                  ] + $changelog_blocks + [
-                    {
-                      "type": "Container",
-                      "spacing": "Medium",
-                      "separator": true,
-                      "items": [{
-                        "type": "ColumnSet",
-                        "columns": [{
-                          "type": "Column",
-                          "width": "auto",
-                          "items": [{ "type": "TextBlock", "text": "Install: `brew install PhilipKram/tap/jenkins-cli`", "isSubtle": true, "size": "Small" }]
-                        }]
-                      }]
-                    }
-                  ],
+                  "body": ([header_block, meta_block] + $changelog_blocks + [install_block]),
                   "actions": [
                     { "type": "Action.OpenUrl", "title": "View Release", "url": $release_url, "style": "positive" },
                     { "type": "Action.OpenUrl", "title": "Download", "url": $download_url },
