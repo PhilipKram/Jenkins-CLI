@@ -49,13 +49,13 @@ changelog:
   use: github
   groups:
     - title: "New Features"
-      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      regexp: '^feat(\(.+\))?!?:.+'
       order: 0
     - title: "Bug Fixes"
-      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      regexp: '^fix(\(.+\))?!?:.+'
       order: 1
     - title: "Performance"
-      regexp: '^.*?perf(\([[:word:]]+\))??!?:.+$'
+      regexp: '^perf(\(.+\))?!?:.+'
       order: 2
     - title: "Other Changes"
       order: 999
@@ -99,8 +99,13 @@ release:
   name_template: "jenkins-cli v{{ .Version }}"
   header: |
     ## jenkins-cli v{{ .Version }}
+    {{- if .PreviousTag }}
 
     Welcome to this new release! Here's what changed since `{{ .PreviousTag }}`.
+    {{- else }}
+
+    Welcome to the first release of jenkins-cli!
+    {{- end }}
   footer: |
     ---
 
