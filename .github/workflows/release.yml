@@ -72,25 +72,112 @@ jobs:
           VERSION="${GITHUB_REF_NAME}"
           RELEASE_URL="https://github.com/PhilipKram/Jenkins-CLI/releases/tag/${VERSION}"
 
-          # Extract release notes and clean up for Teams card
-          RELEASE_NOTES=$(gh release view "${VERSION}" --json body --jq '.body' 2>/dev/null || echo "")
+          # Extract release notes from GitHub release
+          RELEASE_BODY=$(gh release view "${VERSION}" --json body --jq '.body' 2>/dev/null || echo "")
 
-          if [ -n "$RELEASE_NOTES" ]; then
-            CHANGELOG=$(echo "$RELEASE_NOTES" \
+          # Parse features, fixes, and other changes into separate sections
+          FEATURES=""
+          FIXES=""
+          OTHERS=""
+
+          if [ -n "$RELEASE_BODY" ]; then
+            CURRENT_SECTION=""
+            while IFS= read -r line; do
+              case "$line" in
+                *"New Features"*) CURRENT_SECTION="features" ;;
+                *"Bug Fixes"*)    CURRENT_SECTION="fixes" ;;
+                *"Performance"*|*"Other Changes"*) CURRENT_SECTION="others" ;;
+                \*\ *)
+                  # Clean: strip commit hashes, PR refs stay
+                  clean=$(echo "$line" | sed 's/^\* [a-f0-9]\{7,40\} /• /' | sed 's/^\* /• /' | sed 's/"/\\"/g')
+                  case "$CURRENT_SECTION" in
+                    features) FEATURES="${FEATURES}${clean}\\n" ;;
+                    fixes)    FIXES="${FIXES}${clean}\\n" ;;
+                    *)        OTHERS="${OTHERS}${clean}\\n" ;;
+                  esac
+                  ;;
+              esac
+            done <<< "$RELEASE_BODY"
+          fi
+
+          # Build changelog sections for the card
+          CHANGELOG_BLOCKS=""
+
+          if [ -n "$FEATURES" ]; then
+            CHANGELOG_BLOCKS="${CHANGELOG_BLOCKS}"'
+            ,{
+              "type": "RichTextBlock",
+              "spacing": "Small",
+              "inlines": [
+                {"type": "TextRun", "text": "New Features", "weight": "Bolder", "size": "Small", "color": "Good"}
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "'"${FEATURES%\\n}"'",
+              "wrap": true,
+              "size": "Small",
+              "spacing": "None"
+            }'
+          fi
+
+          if [ -n "$FIXES" ]; then
+            CHANGELOG_BLOCKS="${CHANGELOG_BLOCKS}"'
+            ,{
+              "type": "RichTextBlock",
+              "spacing": "Small",
+              "inlines": [
+                {"type": "TextRun", "text": "Bug Fixes", "weight": "Bolder", "size": "Small", "color": "Attention"}
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "'"${FIXES%\\n}"'",
+              "wrap": true,
+              "size": "Small",
+              "spacing": "None"
+            }'
+          fi
+
+          if [ -n "$OTHERS" ]; then
+            CHANGELOG_BLOCKS="${CHANGELOG_BLOCKS}"'
+            ,{
+              "type": "RichTextBlock",
+              "spacing": "Small",
+              "inlines": [
+                {"type": "TextRun", "text": "Other Changes", "weight": "Bolder", "size": "Small"}
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "'"${OTHERS%\\n}"'",
+              "wrap": true,
+              "size": "Small",
+              "spacing": "None"
+            }'
+          fi
+
+          # Fallback if no sections were parsed
+          if [ -z "$CHANGELOG_BLOCKS" ]; then
+            FALLBACK=$(echo "$RELEASE_BODY" \
               | sed 's/^[a-f0-9]\{7,40\} //' \
               | sed 's/^\* [a-f0-9]\{7,40\} /* /' \
-              | grep -v '^## ' \
-              | grep -v '^Changelog$' \
-              | grep -v '^$' \
+              | grep -v '^## \|^---\|^Changelog$\|^Welcome\|^Full Changelog\|^$\|^###\|^```\|^brew \|^npx \|^Binary' \
               | sed 's/^\* /• /' \
               | head -15 \
               | sed 's/"/\\"/g; s/$/\\n/' \
               | tr -d '\n')
-            if [ ${#CHANGELOG} -gt 1000 ]; then
-              CHANGELOG="${CHANGELOG:0:997}..."
+            if [ ${#FALLBACK} -gt 800 ]; then
+              FALLBACK="${FALLBACK:0:797}..."
             fi
-          else
-            CHANGELOG="No changelog available. See the release page for details."
+            CHANGELOG_BLOCKS='
+            ,{
+              "type": "TextBlock",
+              "text": "'"${FALLBACK:-See release page for details.}"'",
+              "wrap": true,
+              "size": "Small",
+              "spacing": "Small"
+            }'
           fi
 
           # Count release assets
@@ -101,9 +188,14 @@ jobs:
           if [ -n "$PREV_TAG" ]; then
             COMMIT_COUNT=$(git rev-list --count "${PREV_TAG}..${VERSION}" 2>/dev/null || echo "?")
             COMPARE_INFO="${COMMIT_COUNT} commits since ${PREV_TAG}"
+            COMPARE_URL="https://github.com/PhilipKram/Jenkins-CLI/compare/${PREV_TAG}...${VERSION}"
           else
             COMPARE_INFO="Initial release"
+            COMPARE_URL="${RELEASE_URL}"
           fi
+
+          # Get release date
+          RELEASE_DATE=$(date -u +"%B %d, %Y")
 
           curl -s -X POST "$TEAMS_WEBHOOK_URL" \
             -H "Content-Type: application/json" \
@@ -115,15 +207,60 @@ jobs:
                   "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
                   "type": "AdaptiveCard",
                   "version": "1.4",
+                  "msteams": {
+                    "width": "Full"
+                  },
                   "body": [
                     {
-                      "type": "TextBlock",
-                      "size": "Large",
-                      "weight": "Bolder",
-                      "text": "jenkins-cli '"${VERSION}"' released"
+                      "type": "Container",
+                      "style": "accent",
+                      "bleed": true,
+                      "items": [
+                        {
+                          "type": "ColumnSet",
+                          "columns": [
+                            {
+                              "type": "Column",
+                              "width": "stretch",
+                              "items": [
+                                {
+                                  "type": "TextBlock",
+                                  "text": "jenkins-cli",
+                                  "size": "Small",
+                                  "weight": "Bolder",
+                                  "color": "Light"
+                                },
+                                {
+                                  "type": "TextBlock",
+                                  "text": "'"${VERSION}"'",
+                                  "size": "ExtraLarge",
+                                  "weight": "Bolder",
+                                  "color": "Light",
+                                  "spacing": "None"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "Column",
+                              "width": "auto",
+                              "verticalContentAlignment": "Center",
+                              "items": [
+                                {
+                                  "type": "TextBlock",
+                                  "text": "NEW RELEASE",
+                                  "size": "Small",
+                                  "weight": "Bolder",
+                                  "color": "Light"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
                     },
                     {
                       "type": "ColumnSet",
+                      "spacing": "Medium",
                       "columns": [
                         {
                           "type": "Column",
@@ -143,39 +280,68 @@ jobs:
                           "items": [
                             {
                               "type": "TextBlock",
-                              "text": "📦 '"${ASSET_COUNT}"' artifacts",
+                              "text": "'"${ASSET_COUNT}"' artifacts",
+                              "isSubtle": true,
+                              "size": "Small"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "Column",
+                          "width": "auto",
+                          "items": [
+                            {
+                              "type": "TextBlock",
+                              "text": "'"${RELEASE_DATE}"'",
                               "isSubtle": true,
                               "size": "Small"
                             }
                           ]
                         }
                       ]
-                    },
-                    {
-                      "type": "TextBlock",
-                      "text": "**What'"'"'s Changed**",
-                      "weight": "Bolder",
+                    }
+                    '"${CHANGELOG_BLOCKS}"'
+                    ,{
+                      "type": "Container",
                       "spacing": "Medium",
-                      "separator": true
-                    },
-                    {
-                      "type": "TextBlock",
-                      "text": "'"${CHANGELOG}"'",
-                      "wrap": true,
-                      "size": "Small",
-                      "spacing": "Small"
+                      "separator": true,
+                      "items": [
+                        {
+                          "type": "ColumnSet",
+                          "columns": [
+                            {
+                              "type": "Column",
+                              "width": "auto",
+                              "items": [
+                                {
+                                  "type": "TextBlock",
+                                  "text": "Install: `brew install PhilipKram/tap/jenkins-cli`",
+                                  "isSubtle": true,
+                                  "size": "Small"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
                     }
                   ],
                   "actions": [
                     {
                       "type": "Action.OpenUrl",
-                      "title": "📋 View Release",
-                      "url": "'"${RELEASE_URL}"'"
+                      "title": "View Release",
+                      "url": "'"${RELEASE_URL}"'",
+                      "style": "positive"
                     },
                     {
                       "type": "Action.OpenUrl",
-                      "title": "⬇️ Download",
+                      "title": "Download",
                       "url": "'"${RELEASE_URL}"'#assets"
+                    },
+                    {
+                      "type": "Action.OpenUrl",
+                      "title": "Compare Changes",
+                      "url": "'"${COMPARE_URL}"'"
                     }
                   ]
                 }

@@ -46,12 +46,28 @@ snapshot:
 
 changelog:
   sort: asc
+  use: github
+  groups:
+    - title: "New Features"
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: "Bug Fixes"
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: "Performance"
+      regexp: '^.*?perf(\([[:word:]]+\))??!?:.+$'
+      order: 2
+    - title: "Other Changes"
+      order: 999
   filters:
     exclude:
       - "^docs:"
       - "^test:"
       - "^ci:"
       - "^chore:"
+      - "^style:"
+      - "Merge pull request"
+      - "Merge branch"
 
 brews:
   - name: jenkins-cli
@@ -80,4 +96,26 @@ release:
     name: Jenkins-CLI
   draft: false
   prerelease: auto
-  name_template: "v{{ .Version }}"
+  name_template: "jenkins-cli v{{ .Version }}"
+  header: |
+    ## jenkins-cli v{{ .Version }}
+
+    Welcome to this new release! Here's what changed since `{{ .PreviousTag }}`.
+  footer: |
+    ---
+
+    ### Installation
+
+    **Homebrew:**
+    ```
+    brew install PhilipKram/tap/jenkins-cli
+    ```
+
+    **npm (MCP server):**
+    ```
+    npx @philipkram/jenkins-cli-mcp
+    ```
+
+    **Binary:** Download the appropriate archive below for your OS/architecture.
+
+    **Full Changelog**: https://github.com/PhilipKram/Jenkins-CLI/compare/{{ .PreviousTag }}...{{ .Tag }}
